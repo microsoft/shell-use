@@ -140,16 +140,14 @@ impl Perform for TrackerState {
                 let exit = params.get(2).and_then(|p| std::str::from_utf8(p).ok());
                 self.command_marker(marker, exit);
             }
-            Some(OSC_CWD) => {
-                if params.len() > 1 {
-                    let value = params[1..]
-                        .iter()
-                        .map(|p| String::from_utf8_lossy(p))
-                        .collect::<Vec<_>>()
-                        .join(";");
-                    if let Some(path) = parse_file_url(&value) {
-                        self.cwd = Some(path);
-                    }
+            Some(OSC_CWD) if params.len() > 1 => {
+                let value = params[1..]
+                    .iter()
+                    .map(|p| String::from_utf8_lossy(p))
+                    .collect::<Vec<_>>()
+                    .join(";");
+                if let Some(path) = parse_file_url(&value) {
+                    self.cwd = Some(path);
                 }
             }
             _ => {}
