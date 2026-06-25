@@ -1,9 +1,6 @@
-if [[ -f $USER_ZDOTDIR/.zshenv ]]; then
+__su_zdotdir=$ZDOTDIR
+if [[ -f $USER_ZDOTDIR/.zshenv && $USER_ZDOTDIR != $ZDOTDIR ]]; then
 	ZDOTDIR=$USER_ZDOTDIR
-
-	# prevent recursion
-	if [[ $USER_ZDOTDIR != $ZDOTDIR ]]; then
-		ZDOTDIR=$USER_ZDOTDIR
-		. $USER_ZDOTDIR/.zshenv
-	fi
+	. $USER_ZDOTDIR/.zshenv
 fi
+ZDOTDIR=$__su_zdotdir

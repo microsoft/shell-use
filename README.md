@@ -1,138 +1,226 @@
-# TUI Test
+# shell-use
 
-TUI Test is a framework for testing terminal applications. It provides a rich API for writing tests that interact with a terminal application across macOS, Linux, and Windows with a wide range of shells. It is built to be **fast**, **reliable**, and **easy to use**.
+> [!WARNING]
+> **Work in progress.** `shell-use` is still being built out, so commands and behavior may change between releases & installation instructions may not yet work.
 
-## Supported Runtimes
+`shell-use` is a rust powered cli for controlling, inspecting, testing, and recording shell sessions and terminal apps. It supports all standard terminal actions (send keys, mouse clicks) & user actions (screenshot, record sessions), & testing (matches screenshot, contains text). `shell-use` supports Windows, Linux, & macOS and it supports a wide range of shells (see [Supported shells](#supported-shells)).
 
-- Node.js 24.X, 22.X, 20.X, 18.X, 16.X (16.6.0 >=)
-- Bun (1.3.5 >=)
 
-## Installation
+## Install
 
-Install TUI Test as using `npm`:
-
-```sh
-npm i -D @microsoft/tui-test
-```
-
-or `yarn`
+### homebrew (macOS/linux)
 
 ```sh
-yarn add --dev @microsoft/tui-test
+brew tap microsoft/shell-use https://github.com/microsoft/shell-use
+brew install shell-use
 ```
 
-or `pnpm`
+### winget (windows)
 
 ```sh
-pnpm add -D @microsoft/tui-test
+winget install Microsoft.ShellUse
 ```
 
-or `bun`
+### download from releases
+
+Download the latest [release](https://github.com/microsoft/shell-use/releases).
+
+## Quick start
+
+Run a command and check the result:
 
 ```sh
-bun add -D @microsoft/tui-test
+shell-use open                  # start a shell session (auto-starts the daemon)
+shell-use submit "echo hello"   # type the command, press Enter
+shell-use wait command          # block until it finishes
+shell-use expect text "hello"   # assert it showed up
+shell-use expect exit-code 0    # assert it exited 0
+shell-use close
 ```
 
-## Running Tests
-
-Running tests is as simple as running TUI Test from the command line after installation:
+Drive a full-screen TUI the same way:
 
 ```sh
-npx @microsoft/tui-test
+shell-use run vim file.txt
+shell-use wait idle             # let the screen settle
+shell-use press i
+shell-use type "some text"
+shell-use press Escape : w q Enter
+shell-use wait exit
 ```
 
-or with `bun`
+## Built for agents
+
+`shell-use` is an AI native CLI. Point yours at the built-in docs and it can serve itself the rest:
+
+- `shell-use agent-context` prints versioned JSON for every command, flag, enum, default, and exit code. It is generated from the CLI, so it cannot drift from the real surface.
+- `shell-use usage` prints a one-screen cheatsheet.
+- `shell-use skill` prints the full workflow guide ([SKILL.md](SKILL.md)).
+
+### Skill quick start
 
 ```sh
-bunx @microsoft/tui-test
+# ~/.agents or ~/.claude instead to install it for every repo.
+mkdir -p .agents/skills/shell-use && shell-use skill > .agents/skills/shell-use/SKILL.md   # copilot / codex
+mkdir -p .claude/skills/shell-use && shell-use skill > .claude/skills/shell-use/SKILL.md   # copilot / claude
 ```
 
-## Capabilities
+Each command returns a stable exit code (see [Exit codes](#exit-codes)), so an agent can tell an assertion failure from a missing session without scraping text.
 
-### Resilient • No flaky tests
+## Command reference
 
-**Auto-wait** TUI Test provides a rich API for interacting with the terminal. It waits for the terminal to be ready before executing commands, and it provides tooling for waiting for terminal renders before executing assertions.
+Global flags: `--session <name>` (env `SHELL_USE_SESSION`, default `default`), `--json` for machine-readable output, and `--verbose`/`-v` to log PTY traffic (see [Debugging](#debugging)).
 
-**Tracing**. Configure test retry strategy, capture stdout & stderr, and create detailed terminal snapshots to eliminate flakes.
+### Session & lifecycle
+| Command | Description |
+| --- | --- |
+| `open [--shell S] [--cols N --rows N] [--cwd D] [--env K=V]` | Spawn a shell session. |
+| `run <program> [args...]` | Spawn a session running a program directly. |
+| `sessions` | List active sessions. |
+| `close [--all]` | Close the current session (or all). |
+| `daemon status` / `daemon stop` | Inspect / stop the daemon. |
 
-### Full isolation • Fast execution
+### Inspection
+| Command | Description |
+| --- | --- |
+| `state` | cwd, size, cursor, last command + exit code, text snapshot. |
+| `text [--full]` | Plain text of the viewport (or scrollback). |
+| `screenshot [-o file.svg] [--full]` | Terminal text to stdout, or a crisp full-color SVG image (svg-term-style window) to a file. |
+| `cells X Y [W H]` | Per-cell attributes (char, fg, bg, flags). |
+| `get command\|output\|exit-code\|cwd\|cursor\|size` | Structured getters. |
 
-**Terminal contexts**. TUI Test creates a new 'terminal context' for each test, which includes a new terminal and new underlying pty. This delivers full test isolation with zero overhead. Creating new terminal contexts only takes a handful of milliseconds.
+### Input
+| Command | Description |
+| --- | --- |
+| `type "text"` | Type literal text. |
+| `submit ["text"]` | Type then press the shell return key. |
+| `press <Key...>` | Named keys, e.g. `press Escape : w q Enter`, `press Ctrl+C`. |
+| `keys "Control+a"` | A single key combo. |
+| `mouse click X Y` / `mouse click --on-text "OK" [--clicks N]` | Click by coords or label. |
+| `mouse move\|down\|up\|drag\|scroll ...` | Full mouse control. |
 
-### Multi-platform / Multi-shell • No more "it works in my shell"
+### PTY
+| Command | Description |
+| --- | --- |
+| `resize COLS ROWS` | Resize the PTY and emulator. |
+| `write <data>` | Write raw bytes (no return key). |
+| `signal INT\|TERM\|KILL` / `kill` | Signal / kill the child. |
 
-**Multi-platform**. TUI Test supports testing on macOS, Linux, and Windows with a wide range of shells when installed: `cmd`, `windows powershell`, `powershell`, `bash`, `git-bash`, `fish`, `zsh`, and `xonsh`. 
+### Wait
+| Command | Description |
+| --- | --- |
+| `wait text "T" [--regex --full --not --timeout MS]` | Until text is (not) visible. |
+| `wait idle` | Until the screen stops changing. |
+| `wait command` | Until the current command finishes. |
+| `wait exit` | Until the session exits. |
 
-> Note: Bun is only supported on macOS and Linux.
+### Expect (exit 0 = pass, 1 = fail)
+| Command | Description |
+| --- | --- |
+| `expect text "T" [--regex --full --no-strict --not --fg C --bg C --timeout MS]` | Visibility + optional color. |
+| `expect exit-code N` | Last command's exit code. |
+| `expect output "T" [--regex]` | Last command's captured output. |
+| `expect snapshot NAME [-u] [--include-colors]` | Compare against `__snapshots__/NAME.snap`. |
 
-**Wide-support**. TUI Test uses [xterm.js](https://xtermjs.org/) to render the terminal, which is a widely used terminal emulator in projects like [VSCode](https://github.com/microsoft/vscode) and [Hyper](https://github.com/vercel/hyper).
+Colors accept ANSI-256 (`9`), hex (`#ff0000`), or rgb (`255,0,0`).
 
-## Examples
+### Screenshots
+Screenshots render a snapshot of the session in the current terminal by default, but can render an SVG using the `-o` output flag
 
-To find more TUI Test examples [check out the examples folder](./examples) or in TUI Test's [e2e tests](./test/).
+<p align="center">
+  <img alt="full-color SVG screenshot of a TUI rendered by shell-use" src="static/screen.svg" width="400">
+</p>
 
-### Terminal Program
+### Recording
+Every session records automatically from the moment it opens, in the standard
+[asciinema v2](https://docs.asciinema.org/manual/asciicast/v2/) cast format.
 
-This code snippet shows how to start the terminal with a specific program running.
+| Command | Description |
+| --- | --- |
+| `get-recording [session]` | Print the session's recording (cast) to stdout. |
 
-```ts
-import { test, expect } from "@microsoft/tui-test";
-
-test.use({ program: { file: "git" } });
-
-test("git shows usage message", async ({ terminal }) => {
-  await expect(terminal.getByText("usage: git", { full: true })).toBeVisible();
-});
+```sh
+shell-use get-recording > demo.cast   # capture the current session's recording
+asciinema play demo.cast              # replay it
+agg demo.cast demo.gif                # render a GIF
 ```
 
-### Terminal Screenshot
+### Live monitor
+Watch a live session in a second terminal while an agent drives it. Both share
+the same daemon. `monitor` takes over an alternate screen and streams the
+session in full color at ~20fps; press `q`, `Esc`, or `Ctrl-C` to detach.
 
-This code snippet shows how to take a screenshot of the terminal.
+https://github.com/user-attachments/assets/741c985f-7861-41c5-9ceb-0f82f705b43f
 
-```ts
-import { test, expect } from "@microsoft/tui-test";
+| Command | Description |
+| --- | --- |
+| `monitor` | Attach a live, full-color framed view of the session (`--session` selects which). |
 
-test("take a screenshot", async ({ terminal }) => {
-  terminal.write("foo")
-
-  await expect(terminal.getByText("foo")).toBeVisible();
-  await expect(terminal).toMatchSnapshot();
-});
+```sh
+shell-use --session work monitor   # watch the 'work' session live
 ```
 
-### Terminal Assertions
+It needs an interactive terminal (exit `2` otherwise) and an existing session
+(exit `3` if none). The view reads only the shared screen state, so watching
+never blocks the commands the agent is running, and resizing the window just
+re-fits the frame.
 
-This code snippet shows how to use rich assertions of the terminal.
+### Agents
+| Command | Description |
+| --- | --- |
+| `usage` | Compact command cheatsheet. |
+| `agent-context` | Versioned JSON describing every command, flag, enum, default, and the exit-code taxonomy (generated from the CLI, so it can't drift). |
+| `skill` | Long-form workflow guide ([SKILL.md](SKILL.md)). |
 
-```ts
-import { test, expect } from "@microsoft/tui-test";
+### Exit codes
+Every command returns a stable exit code so an agent can branch on the failure class without parsing text:
 
-test("make a regex assertion", async ({ terminal }) => {
-  terminal.submit("ls -l")
+| Code | Meaning |
+| --- | --- |
+| `0` | success |
+| `1` | assertion or wait condition not met (`expect`/`wait`) |
+| `2` | usage / invalid argument |
+| `3` | no active session (run `open`/`run` first) |
+| `4` | daemon or IPC error |
+| `5` | internal error |
 
-  await expect(terminal.getByText(/total [0-9]{3}/g)).toBeVisible();
-});
-```
+With `--json`, failures also carry a `"kind"` field (`assertion`/`usage`/`no_session`/`internal`).
 
-## Traces
+## Supported shells
 
-TUI Test provides a rich tracing system to help you debug and diagnose issues with your tests. You can enable traces by setting the `trace` value in your `tui-test.config.ts` to `true` or by running the cli with the `-t/--trace` flag.
+- bash
+- zsh
+- fish
+- PowerShell (`powershell` and `pwsh`)
+- xonsh
+- elvish
+- nushell
+- cmd
 
-Traces are contain a replay of everything the terminal received and can be used to diagnose issues with your tests, especially when issues happen on different machines. Traces are stored in by default in the `tui-traces` folder in the root of your project and can be replayed via the `show-trace` command.
+## Comparison
 
-## Configuration
+`shell-use` shares its shape with two related tools, both linked in the table:
 
-TUI Test can be configured via the `tui-test.config.[ts|js]` file in the root of your project. The following is an example of a configuration file:
+| | shell-use | [tui-use](https://github.com/onesuper/tui-use) | [terminal-use](https://github.com/flipbit03/terminal-use) |
+| --- | --- | --- | --- |
+| Language | Rust | TypeScript/Node | Rust |
+| Emulator | alacritty | xterm (headless) | alacritty |
+| Primary target | shells **and** TUI apps | REPLs / debuggers / TUI apps | TUI apps |
+| Shell command tracking ([OSC 133](https://gitlab.freedesktop.org/Per_Bothner/specifications/blob/master/proposals/semantic-prompts.md)/633) | ✅ command boundaries, exit codes, cwd | ❌ | ❌ |
+| Testing / snapshots | ✅ `expect` text / output / exit-code / snapshot | ❌ | ❌ |
+| Color & per-cell attributes | ✅ fg/bg, ANSI-256/hex/rgb, `cells` | ❌ plain text (+ highlights) | via PNG |
+| Image screenshots | ✅ SVG | ❌ | ✅ PNG |
+| Built-in recording | ✅ always-on asciinema cast + GIF | ❌ | ❌ |
+| Live monitor view | ✅ | ❌ | ✅ |
+| Stable exit-code taxonomy for agents | ✅ | ❌ | ❌ |
+| Runtime | native | Node.js | native |
+| Platforms | Windows + Unix | Windows + Unix | Linux / macOS |
 
-```ts
-import { defineConfig } from "@microsoft/tui-test";
+The difference is testing: `shell-use` tracks command boundaries and exit codes across every supported shell, then adds assertions, snapshots, color checks, and an always-on recording on top of the usual drive-and-read loop. It ships as one self-contained native binary with no runtime to install, where a Node tool like tui-use pulls in a full Node.js runtime and its native modules.
 
-export default defineConfig({
-  retries: 3,
-  trace: true
-});
+## Debugging
 
-```
+By default the daemon writes no log. Start it with `--verbose` to record every byte read from and written to the PTY, plus lifecycle events, to `~/.shell-use/<session>.log`:
 
 ## Contributing
 
@@ -155,4 +243,3 @@ trademarks or logos is subject to and must follow
 [Microsoft's Trademark & Brand Guidelines](https://www.microsoft.com/en-us/legal/intellectualproperty/trademarks/usage/general).
 Use of Microsoft trademarks or logos in modified versions of this project must not cause confusion or imply Microsoft sponsorship.
 Any use of third-party trademarks or logos are subject to those third-party's policies.
-

@@ -1,6 +1,4 @@
-node_modules/
-lib/
-.tui-test/
-*.tgz
-t*.md
-tui-traces/
+/target
+*.gif
+*.trace
+.shell-use/

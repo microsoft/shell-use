@@ -1,0 +1,29 @@
+[package]
+name = "shell-use"
+version = "0.0.1-beta.1"
+edition = "2021"
+description = "A headless terminal CLI + daemon for driving, asserting on, and recording shells"
+license = "MIT"
+repository = "https://github.com/microsoft/shell-use"
+readme = "README.md"
+
+[[bin]]
+name = "shell-use"
+path = "src/main.rs"
+
+[profile.release]
+strip = true
+lto = true
+
+[dependencies]
+alacritty_terminal = "0.26.0"
+anyhow = "1.0.102"
+clap = { version = "4.6.1", features = ["derive", "env"] }
+dirs = "6.0.0"
+flate2 = "1.1.9"
+interprocess = "2.4.2"
+portable-pty = "0.9.0"
+regex = "1.12.4"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
+crossterm = "0.28"
