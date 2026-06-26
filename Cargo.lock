@@ -743,7 +743,7 @@ dependencies = [
 
 [[package]]
 name = "shell-use"
-version = "0.0.1-beta.1"
+version = "0.0.1-beta.2"
 dependencies = [
  "alacritty_terminal",
  "anyhow",

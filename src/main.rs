@@ -260,6 +260,9 @@ fn map_expect(what: ExpectCmd) -> Request {
             name,
             update,
             include_colors,
+            cwd: std::env::current_dir()
+                .ok()
+                .map(|p| p.to_string_lossy().into_owned()),
         },
     }
 }

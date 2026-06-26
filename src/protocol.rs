@@ -86,6 +86,10 @@ pub enum Request {
         name: String,
         update: bool,
         include_colors: bool,
+        /// The client's working directory; `__snapshots__` is resolved against
+        /// it so snapshots land next to the caller, not the daemon.
+        #[serde(default)]
+        cwd: Option<String>,
     },
     Screenshot {
         full: bool,
