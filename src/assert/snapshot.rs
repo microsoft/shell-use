@@ -1,6 +1,6 @@
 //! Terminal snapshot serialization + on-disk `.snap` comparison.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde_json::{json, Map, Value};
 
@@ -13,10 +13,8 @@ pub enum SnapshotStatus {
     Failed { expected: String, actual: String },
 }
 
-fn snapshot_dir() -> PathBuf {
-    std::env::current_dir()
-        .unwrap_or_default()
-        .join("__snapshots__")
+fn snapshot_dir(base: &Path) -> PathBuf {
+    base.join("__snapshots__")
 }
 
 fn sanitize(name: &str) -> String {
@@ -25,8 +23,8 @@ fn sanitize(name: &str) -> String {
         .collect()
 }
 
-fn snapshot_path(name: &str) -> PathBuf {
-    snapshot_dir().join(format!("{}.snap", sanitize(name)))
+fn snapshot_path(base: &Path, name: &str) -> PathBuf {
+    snapshot_dir(base).join(format!("{}.snap", sanitize(name)))
 }
 
 fn color_value(c: Color) -> Value {
@@ -125,12 +123,19 @@ fn box_view(view: &str, width: u16) -> String {
     out.join("\n")
 }
 
-/// Compare a freshly serialized snapshot against the stored one.
-pub fn compare(name: &str, content: &str, update: bool) -> std::io::Result<SnapshotStatus> {
-    let path = snapshot_path(name);
+/// Compare a freshly serialized snapshot against the stored one. Snapshots are
+/// resolved under `base`/`__snapshots__` so they land in the client's working
+/// directory rather than the daemon's.
+pub fn compare(
+    base: &Path,
+    name: &str,
+    content: &str,
+    update: bool,
+) -> std::io::Result<SnapshotStatus> {
+    let path = snapshot_path(base, name);
     let trimmed = content.trim();
     if !path.exists() {
-        std::fs::create_dir_all(snapshot_dir())?;
+        std::fs::create_dir_all(snapshot_dir(base))?;
         std::fs::write(&path, format!("{trimmed}\n"))?;
         return Ok(SnapshotStatus::Written);
     }

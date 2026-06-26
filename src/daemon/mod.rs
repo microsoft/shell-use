@@ -253,9 +253,12 @@ impl Daemon {
                     "shell": s.shell.map(|sh| sh.as_str()),
                     "exited": st.exited,
                     "log": log,
+                    "version": env!("CARGO_PKG_VERSION"),
                 }))
             }
-            None => Response::with(json!({ "session": self.name, "pid": null, "log": log })),
+            None => Response::with(
+                json!({ "session": self.name, "pid": null, "log": log, "version": env!("CARGO_PKG_VERSION") }),
+            ),
         }
     }
 
@@ -382,7 +385,8 @@ fn dispatch(s: &mut Session, req: Request) -> Response {
             name,
             update,
             include_colors,
-        } => do_snapshot(s, &name, update, include_colors),
+            cwd,
+        } => do_snapshot(s, &name, update, include_colors, cwd),
         Request::Screenshot { full, path } => screenshot(s, full, path),
         _ => Response::internal("unsupported request"),
     }
@@ -779,11 +783,21 @@ fn expect_output(s: &Session, text: &str, regex: bool) -> Response {
     }
 }
 
-fn do_snapshot(s: &Session, name: &str, update: bool, include_colors: bool) -> Response {
+fn do_snapshot(
+    s: &Session,
+    name: &str,
+    update: bool,
+    include_colors: bool,
+    cwd: Option<String>,
+) -> Response {
     let rows = viewable(s);
     let cols = s.cols;
     let content = snapshot::serialize(&rows, cols, include_colors);
-    match snapshot::compare(name, &content, update) {
+    let base = cwd
+        .map(std::path::PathBuf::from)
+        .or_else(|| std::env::current_dir().ok())
+        .unwrap_or_default();
+    match snapshot::compare(&base, name, &content, update) {
         Ok(SnapshotStatus::Passed) => Response::with(json!({ "status": "passed" })),
         Ok(SnapshotStatus::Written) => Response::with(json!({ "status": "written" })),
         Ok(SnapshotStatus::Updated) => Response::with(json!({ "status": "updated" })),
