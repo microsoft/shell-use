@@ -10,8 +10,16 @@ jobs:
   check:
     strategy:
       matrix:
-        os: ["macos-latest", "windows-latest", "ubuntu-latest"]
+        include:
+          - os: macos-latest
+            bin: target/debug/shell-use
+          - os: windows-latest
+            bin: target/debug/shell-use.exe
+          - os: ubuntu-latest
+            bin: target/debug/shell-use
     runs-on: ${{ matrix.os }}
+    env:
+      SHELL_USE_BIN: ${{ github.workspace }}/${{ matrix.bin }}
     steps:
       - uses: actions/checkout@v4
 
@@ -33,3 +41,45 @@ jobs:
       - run: cargo clippy --all-targets --all-features -- -D warnings
       - run: cargo build
       - run: cargo test
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Test Python bindings
+        working-directory: bindings/python
+        shell: bash
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -v
+
+      - name: Setup JS
+        working-directory: bindings/js
+        shell: bash
+        run: |
+          npm ci
+          npm run build
+
+      - name: Test JS bindings (Node)
+        working-directory: bindings/js
+        shell: bash
+        run: npm run test:node
+
+      - name: Test JS bindings (Bun)
+        working-directory: bindings/js
+        shell: bash
+        run: npm run test:bun
+
+      - name: Test JS bindings (Deno)
+        working-directory: bindings/js
+        shell: bash
+        run: npm run test:deno

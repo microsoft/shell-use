@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "shell-use"
+version = "0.0.1-beta.2"
+description = "Python client for the shell-use terminal daemon"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [{ name = "Microsoft" }]
+keywords = ["terminal", "pty", "automation", "testing", "tui", "shell-use"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/microsoft/shell-use"
+Repository = "https://github.com/microsoft/shell-use"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/shell_use"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/shell_use", "README.md"]
