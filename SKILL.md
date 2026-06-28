@@ -1,6 +1,6 @@
 ---
 name: shell-use
-description: 'Drive, inspect, assert on, record, and watch a real terminal from the command line with the shell-use CLI. Use when running shells (bash, zsh, fish, PowerShell, pwsh, cmd, xonsh, elvish, nushell) or TUI programs (vim, less, top, etc.) in a headless PTY; sending keystrokes, key combos, or mouse input; resizing, writing raw bytes, or signaling the child; waiting for a command to finish or the screen to settle; asserting on terminal text, colors, exit codes, output, or snapshots; capturing text or full-color SVG screenshots; recording and replaying asciinema sessions; or watching a live session while an agent drives it.'
+description: 'Drive, inspect, assert on, record, and watch a real terminal from the command line with the shell-use CLI. Use when running shells (bash, zsh, fish, PowerShell, pwsh, cmd, xonsh, elvish, nushell) or TUI programs (vim, less, top, etc.) in a headless PTY; sending keystrokes, key combos, or mouse input; resizing, writing raw bytes, or signaling the child; waiting for a command to finish or the screen to settle; asserting on terminal text, colors, exit codes, output, or snapshots; capturing text or full-color SVG screenshots; recording and replaying asciinema sessions; watching a live session while an agent drives it; or doing any of this from Python or Node with the shell-use bindings.'
 ---
 
 # shell-use
@@ -218,6 +218,79 @@ shell-use --session work monitor   # watch the 'work' session live
 It needs an interactive terminal (exit `2` otherwise) and an existing session
 (exit `3` if none). It only reads shared screen state, so watching never blocks
 the commands the agent runs; resizing the window re-fits the frame.
+
+## Programmatic use (Python, Node, Deno & Bun)
+
+Two client libraries drive the same daemon from code instead of the shell, with
+methods that mirror the CLI command surface. Both are async and dependency-free,
+and both need the `shell-use` binary on `PATH` (or pointed to with the
+`SHELL_USE_BIN` env var, or a `binary` argument). They start and reuse the daemon
+exactly like the CLI, so a session opened from code can be watched with
+`shell-use monitor` from another terminal. The JavaScript package is a single
+ESM module that runs on Node, Deno, and Bun; it imports only built-in modules,
+so it pulls in nothing extra on any of them.
+
+```sh
+pip install shell-use              # Python 3.8+, imported as `shell_use`
+npm install @microsoft/shell-use   # Node 20+ (ESM only)
+bun add @microsoft/shell-use       # Bun
+deno add npm:@microsoft/shell-use  # Deno 2
+```
+
+Python:
+
+```python
+import asyncio
+from shell_use import ShellUse
+
+async def main():
+    async with ShellUse() as su:                     # closes the session on exit
+        await su.open()
+        await su.submit("echo hello")
+        await su.wait_command()
+        await su.expect_text("hello", strict=False)  # command echo + output both match
+        await su.expect_exit_code(0)
+
+asyncio.run(main())
+```
+
+Node, Deno, or Bun (the same code runs on all three):
+
+```js
+import { ShellUse } from "@microsoft/shell-use";
+
+const su = new ShellUse();
+await su.open();
+await su.submit("echo hello");
+await su.waitCommand();
+await su.expectText("hello", { strict: false });
+await su.expectExitCode(0);
+await su.close();
+```
+
+On Windows, Deno needs `-A` (`--allow-all`) rather than just
+`--allow-read --allow-write`, because the daemon IPC uses a named pipe.
+
+Methods mirror the CLI commands: `open` / `run`, `submit` / `type` / `write`,
+`press` / `keys`, `mouse.click|move|down|up|drag|scroll`, `resize`, `signal` /
+`kill`, `state`, `text`, `cells`, `get` (plus shorthands `get_command` /
+`get_output` / `get_exit_code` / `get_cwd` / `get_cursor` / `get_size`),
+`screenshot`, `wait_text` / `wait_idle` / `wait_command` / `wait_exit`,
+`expect_text` / `expect_exit_code` / `expect_output` / `expect_snapshot`, and
+`close`. Module-level helpers cover the rest: `sessions`, `close_all`,
+`daemon_status`, `daemon_stop`, `get_recording`. The JavaScript client uses the same names in camelCase (`waitCommand`, `expectText`, `getExitCode`, `closeAll`, etc).
+
+The constructor takes the session name plus optional `binary` and `home`
+overrides: `ShellUse(session="default", *, binary=None, home=None)` in Python,
+`new ShellUse(session?, { binary?, home? })` in JavaScript. `run` takes the program then its args (`await su.run("vim", "file.txt")` in Python,
+`await su.run("vim", ["file.txt"])` in JavaScript).
+
+Failures raise typed errors instead of returning exit codes, one class per row of
+the [exit-code table](#exit-codes): `ExpectationError` (1), `UsageError` (2),
+`NoSessionError` (3), `DaemonError` (4), and `InternalError` (5), all subclasses
+of `ShellUseError`. On its first call a client also checks that the daemon's
+version matches the package and raises `VersionMismatchError` if they differ;
+stop the daemon (`daemon_stop`) so it restarts on the matching binary.
 
 ## Supported shells & integration
 

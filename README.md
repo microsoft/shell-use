@@ -5,7 +5,6 @@
 
 `shell-use` is a rust powered cli for controlling, inspecting, testing, and recording shell sessions and terminal apps. It supports all standard terminal actions (send keys, mouse clicks) & user actions (screenshot, record sessions), & testing (matches screenshot, contains text). `shell-use` supports Windows, Linux, & macOS and it supports a wide range of shells (see [Supported shells](#supported-shells)).
 
-
 ## Install
 
 ### homebrew (macOS/linux)
@@ -51,9 +50,9 @@ shell-use wait exit
 
 ## Built for agents
 
-`shell-use` is an AI native CLI. Point yours at the built-in docs and it can serve itself the rest:
+`shell-use` is an AI native cli. Point yours at the built-in docs and it can serve itself the rest:
 
-- `shell-use agent-context` prints versioned JSON for every command, flag, enum, default, and exit code. It is generated from the CLI, so it cannot drift from the real surface.
+- `shell-use agent-context` prints versioned JSON for every command, flag, enum, default, and exit code. It is generated from the cli, so it cannot drift from the real surface.
 - `shell-use usage` prints a one-screen cheatsheet.
 - `shell-use skill` prints the full workflow guide ([SKILL.md](SKILL.md)).
 
@@ -67,64 +66,120 @@ mkdir -p .claude/skills/shell-use && shell-use skill > .claude/skills/shell-use/
 
 Each command returns a stable exit code (see [Exit codes](#exit-codes)), so an agent can tell an assertion failure from a missing session without scraping text.
 
+## Programmatic usage
+
+`shell-use` has python & node client libraries that drive the daemon with the same commands as the cli. The `shell-use` binary still needs to be on your `PATH` (or pointed to with `SHELL_USE_BIN`). The clients manage the daemon for you, similar to the cli.
+
+### Python ([`shell-use`](bindings/python/README.md))
+
+```sh
+pip install shell-use
+```
+
+```python
+import asyncio
+from shell_use import ShellUse
+
+async def main():
+    async with ShellUse() as su:
+        await su.open()
+        await su.submit("echo hello")
+        await su.wait_command()
+        await su.expect_text("hello")
+        await su.expect_exit_code(0)
+
+asyncio.run(main())
+```
+
+### Node / Deno / Bun ([`@microsoft/shell-use`](bindings/js/README.md))
+
+```sh
+npm install @microsoft/shell-use # Node 20+
+
+bun add @microsoft/shell-use # Bun
+
+deno add npm:@microsoft/shell-use # Deno 2
+```
+
+```js
+import { ShellUse } from "@microsoft/shell-use";
+
+const su = new ShellUse();
+await su.open();
+await su.submit("echo hello");
+await su.waitCommand();
+await su.expectText("hello");
+await su.expectExitCode(0);
+await su.close();
+```
+
+> Note: On Windows, Deno requires all permissions (`-A` / `--allow-all`) instead of just `--allow-read --allow-write` due to the use of named pipes for IPC with the daemon.
+
 ## Command reference
 
 Global flags: `--session <name>` (env `SHELL_USE_SESSION`, default `default`), `--json` for machine-readable output, and `--verbose`/`-v` to log PTY traffic (see [Debugging](#debugging)).
 
 ### Session & lifecycle
-| Command | Description |
-| --- | --- |
-| `open [--shell S] [--cols N --rows N] [--cwd D] [--env K=V]` | Spawn a shell session. |
-| `run <program> [args...]` | Spawn a session running a program directly. |
-| `sessions` | List active sessions. |
-| `close [--all]` | Close the current session (or all). |
-| `daemon status` / `daemon stop` | Inspect / stop the daemon. |
+
+| Command                                                      | Description                                 |
+| ------------------------------------------------------------ | ------------------------------------------- |
+| `open [--shell S] [--cols N --rows N] [--cwd D] [--env K=V]` | Spawn a shell session.                      |
+| `run <program> [args...]`                                    | Spawn a session running a program directly. |
+| `sessions`                                                   | List active sessions.                       |
+| `close [--all]`                                              | Close the current session (or all).         |
+| `daemon status` / `daemon stop`                              | Inspect / stop the daemon.                  |
 
 ### Inspection
-| Command | Description |
-| --- | --- |
-| `state` | cwd, size, cursor, last command + exit code, text snapshot. |
-| `text [--full]` | Plain text of the viewport (or scrollback). |
-| `screenshot [-o file.svg] [--full]` | Terminal text to stdout, or a crisp full-color SVG image (svg-term-style window) to a file. |
-| `cells X Y [W H]` | Per-cell attributes (char, fg, bg, flags). |
-| `get command\|output\|exit-code\|cwd\|cursor\|size` | Structured getters. |
+
+| Command                                             | Description                                                                                 |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `state`                                             | cwd, size, cursor, last command + exit code, text snapshot.                                 |
+| `text [--full]`                                     | Plain text of the viewport (or scrollback).                                                 |
+| `screenshot [-o file.svg] [--full]`                 | Terminal text to stdout, or a crisp full-color SVG image (svg-term-style window) to a file. |
+| `cells X Y [W H]`                                   | Per-cell attributes (char, fg, bg, flags).                                                  |
+| `get command\|output\|exit-code\|cwd\|cursor\|size` | Structured getters.                                                                         |
 
 ### Input
-| Command | Description |
-| --- | --- |
-| `type "text"` | Type literal text. |
-| `submit ["text"]` | Type then press the shell return key. |
-| `press <Key...>` | Named keys, e.g. `press Escape : w q Enter`, `press Ctrl+C`. |
-| `keys "Control+a"` | A single key combo. |
-| `mouse click X Y` / `mouse click --on-text "OK" [--clicks N]` | Click by coords or label. |
-| `mouse move\|down\|up\|drag\|scroll ...` | Full mouse control. |
+
+| Command                                                       | Description                                                  |
+| ------------------------------------------------------------- | ------------------------------------------------------------ |
+| `type "text"`                                                 | Type literal text.                                           |
+| `submit ["text"]`                                             | Type then press the shell return key.                        |
+| `press <Key...>`                                              | Named keys, e.g. `press Escape : w q Enter`, `press Ctrl+C`. |
+| `keys "Control+a"`                                            | A single key combo.                                          |
+| `mouse click X Y` / `mouse click --on-text "OK" [--clicks N]` | Click by coords or label.                                    |
+| `mouse move\|down\|up\|drag\|scroll ...`                      | Full mouse control.                                          |
 
 ### PTY
-| Command | Description |
-| --- | --- |
-| `resize COLS ROWS` | Resize the PTY and emulator. |
-| `write <data>` | Write raw bytes (no return key). |
-| `signal INT\|TERM\|KILL` / `kill` | Signal / kill the child. |
+
+| Command                           | Description                      |
+| --------------------------------- | -------------------------------- |
+| `resize COLS ROWS`                | Resize the PTY and emulator.     |
+| `write <data>`                    | Write raw bytes (no return key). |
+| `signal INT\|TERM\|KILL` / `kill` | Signal / kill the child.         |
 
 ### Wait
-| Command | Description |
-| --- | --- |
-| `wait text "T" [--regex --full --not --timeout MS]` | Until text is (not) visible. |
-| `wait idle` | Until the screen stops changing. |
-| `wait command` | Until the current command finishes. |
-| `wait exit` | Until the session exits. |
+
+| Command                                             | Description                         |
+| --------------------------------------------------- | ----------------------------------- |
+| `wait text "T" [--regex --full --not --timeout MS]` | Until text is (not) visible.        |
+| `wait idle`                                         | Until the screen stops changing.    |
+| `wait command`                                      | Until the current command finishes. |
+| `wait exit`                                         | Until the session exits.            |
 
 ### Expect (exit 0 = pass, 1 = fail)
-| Command | Description |
-| --- | --- |
-| `expect text "T" [--regex --full --no-strict --not --fg C --bg C --timeout MS]` | Visibility + optional color. |
-| `expect exit-code N` | Last command's exit code. |
-| `expect output "T" [--regex]` | Last command's captured output. |
-| `expect snapshot NAME [-u] [--include-colors]` | Compare against `__snapshots__/NAME.snap`. |
+
+| Command                                                                         | Description                                |
+| ------------------------------------------------------------------------------- | ------------------------------------------ |
+| `expect text "T" [--regex --full --no-strict --not --fg C --bg C --timeout MS]` | Visibility + optional color.               |
+| `expect exit-code N`                                                            | Last command's exit code.                  |
+| `expect output "T" [--regex]`                                                   | Last command's captured output.            |
+| `expect snapshot NAME [-u] [--include-colors]`                                  | Compare against `__snapshots__/NAME.snap`. |
 
 Colors accept ANSI-256 (`9`), hex (`#ff0000`), or rgb (`255,0,0`).
 
 ### Screenshots
+
 Screenshots render a snapshot of the session in the current terminal by default, but can render an SVG using the `-o` output flag
 
 <p align="center">
@@ -132,11 +187,12 @@ Screenshots render a snapshot of the session in the current terminal by default,
 </p>
 
 ### Recording
+
 Every session records automatically from the moment it opens, in the standard
 [asciinema v2](https://docs.asciinema.org/manual/asciicast/v2/) cast format.
 
-| Command | Description |
-| --- | --- |
+| Command                   | Description                                     |
+| ------------------------- | ----------------------------------------------- |
 | `get-recording [session]` | Print the session's recording (cast) to stdout. |
 
 ```sh
@@ -146,14 +202,15 @@ agg demo.cast demo.gif                # render a GIF
 ```
 
 ### Live monitor
+
 Watch a live session in a second terminal while an agent drives it. Both share
 the same daemon. `monitor` takes over an alternate screen and streams the
 session in full color at ~20fps; press `q`, `Esc`, or `Ctrl-C` to detach.
 
 https://github.com/user-attachments/assets/741c985f-7861-41c5-9ceb-0f82f705b43f
 
-| Command | Description |
-| --- | --- |
+| Command   | Description                                                                       |
+| --------- | --------------------------------------------------------------------------------- |
 | `monitor` | Attach a live, full-color framed view of the session (`--session` selects which). |
 
 ```sh
@@ -166,23 +223,25 @@ never blocks the commands the agent is running, and resizing the window just
 re-fits the frame.
 
 ### Agents
-| Command | Description |
-| --- | --- |
-| `usage` | Compact command cheatsheet. |
+
+| Command         | Description                                                                                                                           |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `usage`         | Compact command cheatsheet.                                                                                                           |
 | `agent-context` | Versioned JSON describing every command, flag, enum, default, and the exit-code taxonomy (generated from the CLI, so it can't drift). |
-| `skill` | Long-form workflow guide ([SKILL.md](SKILL.md)). |
+| `skill`         | Long-form workflow guide ([SKILL.md](SKILL.md)).                                                                                      |
 
 ### Exit codes
+
 Every command returns a stable exit code so an agent can branch on the failure class without parsing text:
 
-| Code | Meaning |
-| --- | --- |
-| `0` | success |
-| `1` | assertion or wait condition not met (`expect`/`wait`) |
-| `2` | usage / invalid argument |
-| `3` | no active session (run `open`/`run` first) |
-| `4` | daemon or IPC error |
-| `5` | internal error |
+| Code | Meaning                                               |
+| ---- | ----------------------------------------------------- |
+| `0`  | success                                               |
+| `1`  | assertion or wait condition not met (`expect`/`wait`) |
+| `2`  | usage / invalid argument                              |
+| `3`  | no active session (run `open`/`run` first)            |
+| `4`  | daemon or IPC error                                   |
+| `5`  | internal error                                        |
 
 With `--json`, failures also carry a `"kind"` field (`assertion`/`usage`/`no_session`/`internal`).
 
@@ -199,28 +258,24 @@ With `--json`, failures also carry a `"kind"` field (`assertion`/`usage`/`no_ses
 
 ## Comparison
 
-`shell-use` shares its shape with two related tools, both linked in the table:
-
-| | shell-use | [tui-use](https://github.com/onesuper/tui-use) | [terminal-use](https://github.com/flipbit03/terminal-use) |
-| --- | --- | --- | --- |
-| Language | Rust | TypeScript/Node | Rust |
-| Emulator | alacritty | xterm (headless) | alacritty |
-| Primary target | shells **and** TUI apps | REPLs / debuggers / TUI apps | TUI apps |
-| Shell command tracking ([OSC 133](https://gitlab.freedesktop.org/Per_Bothner/specifications/blob/master/proposals/semantic-prompts.md)/633) | ✅ command boundaries, exit codes, cwd | ❌ | ❌ |
-| Testing / snapshots | ✅ `expect` text / output / exit-code / snapshot | ❌ | ❌ |
-| Color & per-cell attributes | ✅ fg/bg, ANSI-256/hex/rgb, `cells` | ❌ plain text (+ highlights) | via PNG |
-| Image screenshots | ✅ SVG | ❌ | ✅ PNG |
-| Built-in recording | ✅ always-on asciinema cast + GIF | ❌ | ❌ |
-| Live monitor view | ✅ | ❌ | ✅ |
-| Stable exit-code taxonomy for agents | ✅ | ❌ | ❌ |
-| Runtime | native | Node.js | native |
-| Platforms | Windows + Unix | Windows + Unix | Linux / macOS |
-
-The difference is testing: `shell-use` tracks command boundaries and exit codes across every supported shell, then adds assertions, snapshots, color checks, and an always-on recording on top of the usual drive-and-read loop. It ships as one self-contained native binary with no runtime to install, where a Node tool like tui-use pulls in a full Node.js runtime and its native modules.
+|                                      | shell-use                                        | [tui-use](https://github.com/onesuper/tui-use) | [terminal-use](https://github.com/flipbit03/terminal-use) |
+| ------------------------------------ | ------------------------------------------------ | ---------------------------------------------- | --------------------------------------------------------- |
+| Language                             | Rust                                             | TypeScript/Node                                | Rust                                                      |
+| Emulator                             | alacritty                                        | xterm (headless)                               | alacritty                                                 |
+| Shell command tracking               | ✅ command boundaries, exit codes, cwd           | ❌                                             | ❌                                                        |
+| Testing / snapshots                  | ✅ `expect` text / output / exit-code / snapshot | ❌                                             | ❌                                                        |
+| Color & per-cell attributes          | ✅ fg/bg, ANSI-256/hex/rgb, `cells`              | ❌ plain text (+ highlights)                   | via PNG                                                   |
+| Image screenshots                    | ✅ SVG                                           | ❌                                             | ✅ PNG                                                    |
+| Built-in recording                   | ✅ always-on asciinema cast + GIF                | ❌                                             | ❌                                                        |
+| Live monitor view                    | ✅                                               | ❌                                             | ✅                                                        |
+| Stable exit-code taxonomy for agents | ✅                                               | ❌                                             | ❌                                                        |
+| Python & JavaScript bindings         | ✅                                               | ❌                                             | ❌                                                        |
+| Runtime                              | native                                           | Node.js                                        | native                                                    |
+| Platforms                            | Windows + Unix                                   | Windows + Unix                                 | Linux / macOS                                             |
 
 ## Debugging
 
-By default the daemon writes no log. Start it with `--verbose` to record every byte read from and written to the PTY, plus lifecycle events, to `~/.shell-use/<session>.log`:
+By default the daemon writes no log. Start it with `--verbose` to record every byte read from and written to the PTY, plus lifecycle events, to `~/.shell-use/<session>.log`.
 
 ## Contributing
 

@@ -1,0 +1,53 @@
+{
+  "name": "@microsoft/shell-use",
+  "version": "0.0.1-beta.2",
+  "description": "Node client for the shell-use terminal daemon",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "prepublishOnly": "npm run clean && npm run build",
+    "test": "npm run build && node --test",
+    "test:node": "npm run build && node --test",
+    "test:bun": "npm run build && bun test ./test/conformance.test.mjs && bun test ./test/integration.test.mjs && bun test ./test/protocol.test.mjs",
+    "test:deno": "npm run build && deno test -A ./test",
+    "test:all": "npm run test:node && npm run test:bun && npm run test:deno"
+  },
+  "keywords": [
+    "terminal",
+    "pty",
+    "automation",
+    "testing",
+    "tui",
+    "shell-use"
+  ],
+  "license": "MIT",
+  "author": "Microsoft",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/microsoft/shell-use"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.0"
+  }
+}
