@@ -15,7 +15,7 @@ mod trace;
 use std::path::Path;
 use std::time::{Duration, Instant};
 
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 
 use cli::{Cli, Command, DaemonCmd, ExpectCmd, GetArg, MouseCmd, WaitCmd};
 use protocol::{GetField, MouseAction, Request, Response};
@@ -27,7 +27,12 @@ fn main() {
     let cli = Cli::parse();
     let session = config::session_name_from_env(cli.session.clone());
 
-    let code = match cli.command {
+    let Some(command) = cli.command else {
+        let _ = Cli::command().print_help();
+        std::process::exit(0);
+    };
+
+    let code = match command {
         Command::InternalDaemon => {
             if let Err(e) = daemon::run(session, cli.verbose) {
                 eprintln!("daemon error: {e}");
