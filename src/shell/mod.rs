@@ -195,7 +195,10 @@ pub fn shell_launch(shell: Shell) -> anyhow::Result<Launch> {
         }
         Shell::Cmd => {
             env.push(("PROMPT".to_string(), "$G ".to_string()));
-            (windows_exe("cmd"), vec![])
+            (
+                windows_exe("cmd"),
+                vec!["/k".to_string(), "cls".to_string()],
+            )
         }
         Shell::Xonsh => {
             let python = which("python").unwrap_or_else(|| "python".to_string());
