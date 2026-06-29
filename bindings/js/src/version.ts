@@ -1,6 +1,6 @@
 import { VersionMismatchError } from "./errors.js";
 
-export const VERSION = "0.0.1-beta.2";
+export const VERSION = "0.0.1-beta.3";
 
 export function checkVersion(daemonVersion: string | undefined): void {
   if (daemonVersion !== VERSION) {
