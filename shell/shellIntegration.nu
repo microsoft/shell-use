@@ -5,6 +5,7 @@ $env.config = ($env.config | default {})
 $env.config.shell_integration = ($env.config.shell_integration | default {})
 $env.config.shell_integration.osc133 = true
 $env.config.shell_integration.osc7 = true
+$env.config.show_banner = false
 
 $env.PROMPT_COMMAND = {|| "> " }
 $env.PROMPT_COMMAND_RIGHT = {|| "" }

@@ -1,6 +1,8 @@
 import os as __su_os
 import socket as __su_socket
 
+$XONSH_SUPPRESS_WELCOME = True
+
 def __su_osc(m):
     print(f'\033]133;{m}\007', end='', flush=True)
 
