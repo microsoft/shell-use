@@ -180,7 +180,7 @@ Colors accept ANSI-256 (`9`), hex (`#ff0000`), or rgb (`255,0,0`).
 
 ### Screenshots
 
-Screenshots render a snapshot of the session in the current terminal by default, but can render an SVG using the `-o` output flag
+Screenshots render a snapshot of the session in the current terminal by default, but can render an SVG using the `-o` output flag. Nerd Font icons are embedded as vector paths, so SVGs remain self-contained without changing the font stack for regular text.
 
 <p align="center">
   <img alt="full-color SVG screenshot of a TUI rendered by shell-use" src="static/screen.svg" width="400">
