@@ -1,23 +1,30 @@
 # shell-use
 
-> [!WARNING]
-> **Work in progress.** `shell-use` is still being built out, so commands and behavior may change between releases & installation instructions may not yet work.
-
 `shell-use` is a rust powered cli for controlling, inspecting, testing, and recording shell sessions and terminal apps. It supports all standard terminal actions (send keys, mouse clicks) & user actions (screenshot, record sessions), & testing (matches screenshot, contains text). `shell-use` supports Windows, Linux, & macOS and it supports a wide range of shells (see [Supported shells](#supported-shells)).
 
 ## Install
+
+### install script
+
+macOS / Linux:
+
+```sh
+curl --proto '=https' --tlsv1.2 -LsSf https://raw.githubusercontent.com/microsoft/shell-use/main/install/install.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/microsoft/shell-use/main/install/install.ps1 | iex
+```
+
+Use `SHELL_USE_VERSION` to select a specific version or `SHELL_USE_INSTALL_DIR` to select an install location.
 
 ### homebrew (macOS/linux)
 
 ```sh
 brew tap microsoft/shell-use https://github.com/microsoft/shell-use
 brew install shell-use
-```
-
-### winget (windows)
-
-```sh
-winget install Microsoft.ShellUse
 ```
 
 ### download from releases
