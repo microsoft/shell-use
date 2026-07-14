@@ -1,23 +1,30 @@
 # shell-use
 
-> [!WARNING]
-> **Work in progress.** `shell-use` is still being built out, so commands and behavior may change between releases & installation instructions may not yet work.
-
 `shell-use` is a rust powered cli for controlling, inspecting, testing, and recording shell sessions and terminal apps. It supports all standard terminal actions (send keys, mouse clicks) & user actions (screenshot, record sessions), & testing (matches screenshot, contains text). `shell-use` supports Windows, Linux, & macOS and it supports a wide range of shells (see [Supported shells](#supported-shells)).
 
 ## Install
+
+### install script
+
+macOS / Linux:
+
+```sh
+curl --proto '=https' --tlsv1.2 -LsSf https://raw.githubusercontent.com/microsoft/shell-use/main/install/install.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/microsoft/shell-use/main/install/install.ps1 | iex
+```
+
+Use `SHELL_USE_VERSION` to select a specific version or `SHELL_USE_INSTALL_DIR` to select an install location.
 
 ### homebrew (macOS/linux)
 
 ```sh
 brew tap microsoft/shell-use https://github.com/microsoft/shell-use
 brew install shell-use
-```
-
-### winget (windows)
-
-```sh
-winget install Microsoft.ShellUse
 ```
 
 ### download from releases
@@ -59,10 +66,10 @@ shell-use wait exit
 ### Skill quick start
 
 ```sh
-# ~/.agents or ~/.claude instead to install it for every repo.
-mkdir -p .agents/skills/shell-use && shell-use skill > .agents/skills/shell-use/SKILL.md   # copilot / codex
-mkdir -p .claude/skills/shell-use && shell-use skill > .claude/skills/shell-use/SKILL.md   # copilot / claude
+shell-use skill --add
 ```
+
+Adds the `shell-use` skill to the location the user selects in the TUI.
 
 Each command returns a stable exit code (see [Exit codes](#exit-codes)), so an agent can tell an assertion failure from a missing session without scraping text.
 
