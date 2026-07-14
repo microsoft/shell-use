@@ -193,8 +193,12 @@ pub enum Command {
     /// Versioned via `schema_version`; lists every command, flag, type, enum,
     /// default, and the exit-code taxonomy. Generated from the CLI definition.
     AgentContext,
-    /// Print the long-form agent skill manifest (SKILL.md).
-    Skill,
+    /// Print or install the long-form agent skill manifest (SKILL.md).
+    Skill {
+        /// Interactively install the skill by choosing its scope and agent directory.
+        #[arg(long)]
+        add: bool,
+    },
     /// Internal: run the session daemon.
     #[command(name = "__daemon", hide = true)]
     InternalDaemon,
@@ -222,6 +226,17 @@ impl SignalArg {
             SignalArg::Kill => "KILL",
             SignalArg::Quit => "QUIT",
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn skill_accepts_the_add_flag() {
+        let cli = Cli::try_parse_from(["shell-use", "skill", "--add"]).expect("parse skill");
+        assert!(matches!(cli.command, Some(Command::Skill { add: true })));
     }
 }
 

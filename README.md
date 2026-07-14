@@ -59,10 +59,10 @@ shell-use wait exit
 ### Skill quick start
 
 ```sh
-# ~/.agents or ~/.claude instead to install it for every repo.
-mkdir -p .agents/skills/shell-use && shell-use skill > .agents/skills/shell-use/SKILL.md   # copilot / codex
-mkdir -p .claude/skills/shell-use && shell-use skill > .claude/skills/shell-use/SKILL.md   # copilot / claude
+shell-use skill --add
 ```
+
+Adds the `shell-use` skill to the location the user selects in the TUI.
 
 Each command returns a stable exit code (see [Exit codes](#exit-codes)), so an agent can tell an assertion failure from a missing session without scraping text.
 
