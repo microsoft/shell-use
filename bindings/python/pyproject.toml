@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "shell-use"
-version = "0.0.1-beta.3"
+version = "0.0.1-beta.4"
 description = "Python client for the shell-use terminal daemon"
 readme = "README.md"
 requires-python = ">=3.8"
