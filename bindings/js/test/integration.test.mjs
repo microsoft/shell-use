@@ -9,6 +9,10 @@ import { ExpectationError, ShellUse, sessions } from "../dist/index.js";
 const BIN = process.env.SHELL_USE_BIN;
 const skip = !BIN;
 const shell = process.platform === "win32" ? "pwsh" : undefined;
+const evalArgs =
+  typeof globalThis.Deno === "undefined"
+    ? ["-e", "console.log('ready'); setInterval(() => {}, 1000)"]
+    : ["eval", "console.log('ready'); setInterval(() => {}, 1000)"];
 
 test("echo roundtrip drives a real session", { skip }, async () => {
   const home = mkdtempSync(join(tmpdir(), "shell-use-js-"));
@@ -35,10 +39,7 @@ test(
     const session = `nodetest-${process.pid}-error`;
     const su = new ShellUse(session, { home });
     try {
-      await su.run(process.execPath, [
-        "-e",
-        "process.stdout.write('ready'); setInterval(() => {}, 1000)",
-      ]);
+      await su.run(process.execPath, evalArgs);
       await su.waitText("ready", { timeout: 2000 });
       await assert.rejects(
         su.expectText("text-that-is-not-on-screen", { timeout: 50 }),
