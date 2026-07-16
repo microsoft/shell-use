@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-VERSION = "0.0.1-beta.4"
+VERSION = "0.0.1-beta.5"
 
 DEFAULT_COLS = 80
 DEFAULT_ROWS = 30

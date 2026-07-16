@@ -1,6 +1,6 @@
 {
   "name": "@microsoft/shell-use",
-  "version": "0.0.1-beta.4",
+  "version": "0.0.1-beta.5",
   "description": "Node client for the shell-use terminal daemon",
   "type": "module",
   "exports": {
