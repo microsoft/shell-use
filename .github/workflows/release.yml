@@ -224,11 +224,6 @@ jobs:
         shell: bash
         run: |
           version="${RELEASE_TAG#v}"
-          tag="latest"
-          if [[ "$version" == *-* ]]; then
-            tag="${version#*-}"
-            tag="${tag%%.*}"
-          fi
 
           if npm view "${{ matrix.package }}@${version}" version >/dev/null 2>&1; then
             echo "${{ matrix.package }}@${version} is already published"
@@ -238,7 +233,7 @@ jobs:
           npm publish \
             "./npm-packages/${{ matrix.tarball-prefix }}-${version}.tgz" \
             --access public \
-            --tag "$tag"
+            --tag latest
 
   publish-pypi:
     needs:
