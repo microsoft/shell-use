@@ -27,6 +27,12 @@ brew tap microsoft/shell-use https://github.com/microsoft/shell-use
 brew install shell-use
 ```
 
+## winget (windows)
+
+```sh
+winget install Microsoft.ShellUse
+```
+
 ### download from releases
 
 Download the latest [release](https://github.com/microsoft/shell-use/releases).
