@@ -4,16 +4,26 @@ on:
   push:
     tags:
       - "v[0-9]+.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to publish
+        required: true
+        type: string
 
 permissions:
   contents: read
 
+env:
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
   build:
+    if: github.event_name == 'push'
     strategy:
       matrix:
         include:
@@ -36,6 +46,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - run: |
           rustup toolchain install stable --profile default
@@ -85,6 +97,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - uses: actions/setup-node@v4
         with:
@@ -102,7 +116,7 @@ jobs:
           node <<'NODE'
           const fs = require("node:fs");
 
-          const expected = process.env.GITHUB_REF_NAME.replace(/^v/, "");
+          const expected = process.env.RELEASE_TAG.replace(/^v/, "");
           const versions = {
             "Cargo.toml": fs.readFileSync("Cargo.toml", "utf8").match(
               /^\s*version\s*=\s*"([^"]+)"/m,
@@ -181,6 +195,7 @@ jobs:
     needs:
       - build-bindings
       - release
+    if: always() && needs.build-bindings.result == 'success' && (needs.release.result == 'success' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     environment: npm
     permissions:
@@ -208,7 +223,7 @@ jobs:
       - name: Publish ${{ matrix.package }} to npm
         shell: bash
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${RELEASE_TAG#v}"
           tag="latest"
           if [[ "$version" == *-* ]]; then
             tag="${version#*-}"
@@ -224,6 +239,7 @@ jobs:
     needs:
       - build-bindings
       - release
+    if: always() && needs.build-bindings.result == 'success' && (needs.release.result == 'success' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -244,11 +260,14 @@ jobs:
     needs:
       - build
       - build-bindings
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - uses: actions/download-artifact@v4
         with:
@@ -259,6 +278,6 @@ jobs:
       - env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${{ github.ref_name }}" \
+          gh release create "$RELEASE_TAG" \
             --generate-notes \
             artifacts/*
