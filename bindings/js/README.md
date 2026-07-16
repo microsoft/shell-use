@@ -51,7 +51,7 @@ Every failure maps to one of the daemon's exit codes:
 | `VersionMismatchError` | 4 | the daemon's version differs from this package |
 | `InternalError` | 5 | internal daemon error |
 
-All derive from `ShellUseError` and carry `kind` and `exitCode`. `waitX` and `expectX` reject with `ExpectationError` on failure.
+All derive from `ShellUseError` and carry `kind` and `exitCode`. `waitX` and `expectX` reject with `ExpectationError` on failure. Assertion errors include the current visible terminal content.
 
 On its first call, a client checks that the running daemon's version matches the
 package version and throws `VersionMismatchError` if they differ. Stop the daemon

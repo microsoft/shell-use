@@ -5,6 +5,7 @@ import {
   resolveHome,
   resolveSession,
 } from "./config.js";
+import { ExpectationError } from "./errors.js";
 import { envPairs, unwrap } from "./protocol.js";
 import * as transport from "./transport.js";
 import { checkVersion } from "./version.js";
@@ -36,6 +37,21 @@ export interface ExpectTextOptions {
 
 export interface MouseButtonOptions {
   button?: number;
+}
+
+function withOperation(error: unknown, operation: string): unknown {
+  if (!(error instanceof ExpectationError)) {
+    return error;
+  }
+  const previous = error.message;
+  error.message = `${operation}: ${previous}`;
+  if (error.stack) {
+    error.stack = error.stack.replace(
+      `${error.name}: ${previous}`,
+      `${error.name}: ${error.message}`,
+    );
+  }
+  return error;
 }
 
 class Mouse {
@@ -281,17 +297,21 @@ export class ShellUse {
   }
 
   async expectText(text: string, opts: ExpectTextOptions = {}): Promise<void> {
-    await this.send({
-      kind: "expect_text",
-      text,
-      regex: opts.regex ?? false,
-      full: opts.full ?? false,
-      strict: opts.strict ?? true,
-      not: opts.not ?? false,
-      fg: opts.fg ?? null,
-      bg: opts.bg ?? null,
-      timeout_ms: opts.timeout ?? 5000,
-    });
+    try {
+      await this.send({
+        kind: "expect_text",
+        text,
+        regex: opts.regex ?? false,
+        full: opts.full ?? false,
+        strict: opts.strict ?? true,
+        not: opts.not ?? false,
+        fg: opts.fg ?? null,
+        bg: opts.bg ?? null,
+        timeout_ms: opts.timeout ?? 5000,
+      });
+    } catch (error) {
+      throw withOperation(error, "expectText");
+    }
   }
 
   async expectExitCode(code: number): Promise<void> {

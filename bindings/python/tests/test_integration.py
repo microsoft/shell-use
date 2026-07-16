@@ -1,13 +1,15 @@
 import asyncio
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 import shell_use
-from shell_use import ShellUse
+from shell_use import ExpectationError, ShellUse
 
 BIN = os.environ.get("SHELL_USE_BIN")
+SHELL = "pwsh" if sys.platform == "win32" else None
 
 
 def run(coro):
@@ -26,7 +28,7 @@ class IntegrationTests(unittest.TestCase):
     def test_echo_roundtrip(self):
         async def scenario():
             async with self._client() as su:
-                await su.open()
+                await su.open(shell=SHELL)
                 await su.submit("echo hello-sdk")
                 await su.wait_command()
                 await su.expect_text("hello-sdk", strict=False)
@@ -36,10 +38,34 @@ class IntegrationTests(unittest.TestCase):
 
         run(scenario())
 
+    def test_expect_text_error_includes_terminal(self):
+        async def scenario():
+            async with self._client() as su:
+                await su.run(
+                    sys.executable,
+                    "-c",
+                    "import sys,time; sys.stdout.write('ready'); "
+                    "sys.stdout.flush(); time.sleep(60)",
+                )
+                await su.wait_text("ready", timeout=2000)
+                with self.assertRaises(ExpectationError) as raised:
+                    await su.expect_text("text-that-is-not-on-screen", timeout=50)
+                message = str(raised.exception)
+                self.assertIn(
+                    "expect_text: timed out after 50ms waiting for "
+                    "'text-that-is-not-on-screen' to be visible",
+                    message,
+                )
+                self.assertIn("Terminal content:\n╭", message)
+                self.assertIn("ready", message)
+                self.assertIn("\n╰", message)
+
+        run(scenario())
+
     def test_sessions_lists_open_session(self):
         async def scenario():
             su = self._client()
-            await su.open()
+            await su.open(shell=SHELL)
             try:
                 names = await shell_use.sessions(home=self._home)
                 self.assertIn(self._session, names)
@@ -54,7 +80,7 @@ class IntegrationTests(unittest.TestCase):
             snap_root = tempfile.mkdtemp(prefix="shell-use-snap-")
             name = f"snap-{os.path.basename(snap_root)}"
             async with self._client() as su:
-                await su.open()
+                await su.open(shell=SHELL)
                 await su.submit("echo snapshot-marker")
                 await su.wait_command()
                 os.chdir(snap_root)
