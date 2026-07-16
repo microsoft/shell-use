@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     strategy:
@@ -77,8 +81,169 @@ jobs:
             shell-use-*.tar.gz
             shell-use-*.zip
 
+  build-bindings:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: bindings/js/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify release versions
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require("node:fs");
+
+          const expected = process.env.GITHUB_REF_NAME.replace(/^v/, "");
+          const versions = {
+            "Cargo.toml": fs.readFileSync("Cargo.toml", "utf8").match(
+              /^\s*version\s*=\s*"([^"]+)"/m,
+            )?.[1],
+            "bindings/js/package.json": JSON.parse(
+              fs.readFileSync("bindings/js/package.json", "utf8"),
+            ).version,
+            "bindings/js/src/version.ts": fs.readFileSync(
+              "bindings/js/src/version.ts",
+              "utf8",
+            ).match(/VERSION\s*=\s*"([^"]+)"/)?.[1],
+            "bindings/python/pyproject.toml": fs.readFileSync(
+              "bindings/python/pyproject.toml",
+              "utf8",
+            ).match(/^\s*version\s*=\s*"([^"]+)"/m)?.[1],
+            "bindings/python/src/shell_use/_config.py": fs.readFileSync(
+              "bindings/python/src/shell_use/_config.py",
+              "utf8",
+            ).match(/VERSION\s*=\s*"([^"]+)"/)?.[1],
+          };
+
+          for (const [file, version] of Object.entries(versions)) {
+            if (version !== expected) {
+              throw new Error(`${file} has version ${version}; expected ${expected}`);
+            }
+          }
+          NODE
+
+      - name: Build npm packages
+        shell: bash
+        run: |
+          npm ci --prefix bindings/js
+          npm test --prefix bindings/js
+
+          mkdir -p package-artifacts/npm
+          npm pack ./bindings/js --pack-destination package-artifacts/npm
+          node -e '
+            const fs = require("node:fs");
+            const packagePath = "bindings/js/package.json";
+            const readmePath = "bindings/js/README.md";
+            const pkg = JSON.parse(fs.readFileSync(packagePath, "utf8"));
+            pkg.name = "shell-use";
+            fs.writeFileSync(packagePath, JSON.stringify(pkg, null, 2) + "\n");
+            fs.writeFileSync(
+              readmePath,
+              fs.readFileSync(readmePath, "utf8").replaceAll(
+                "@microsoft/shell-use",
+                "shell-use",
+              ),
+            );
+          '
+          npm pack ./bindings/js --pack-destination package-artifacts/npm
+
+      - name: Build Python package
+        shell: bash
+        run: |
+          python -m unittest discover -s bindings/python/tests -v
+          python -m pip install --disable-pip-version-check build
+          python -m build bindings/python --outdir package-artifacts/pypi
+        env:
+          PYTHONPATH: bindings/python/src
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: npm-packages
+          path: package-artifacts/npm/*.tgz
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-distributions
+          path: package-artifacts/pypi/*
+          if-no-files-found: error
+
+  publish-npm:
+    needs:
+      - build-bindings
+      - release
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package: shell-use
+            tarball-prefix: shell-use
+          - package: "@microsoft/shell-use"
+            tarball-prefix: microsoft-shell-use
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-packages
+          path: npm-packages
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+
+      - name: Publish ${{ matrix.package }} to npm
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          tag="latest"
+          if [[ "$version" == *-* ]]; then
+            tag="${version#*-}"
+            tag="${tag%%.*}"
+          fi
+
+          npm publish \
+            "npm-packages/${{ matrix.tarball-prefix }}-${version}.tgz" \
+            --access public \
+            --tag "$tag"
+
+  publish-pypi:
+    needs:
+      - build-bindings
+      - release
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/shell-use
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-distributions
+          path: dist
+
+      - name: Publish shell-use to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
   release:
-    needs: build
+    needs:
+      - build
+      - build-bindings
     runs-on: ubuntu-latest
     permissions:
       contents: write
