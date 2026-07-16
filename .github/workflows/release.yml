@@ -230,8 +230,13 @@ jobs:
             tag="${tag%%.*}"
           fi
 
+          if npm view "${{ matrix.package }}@${version}" version >/dev/null 2>&1; then
+            echo "${{ matrix.package }}@${version} is already published"
+            exit 0
+          fi
+
           npm publish \
-            "npm-packages/${{ matrix.tarball-prefix }}-${version}.tgz" \
+            "./npm-packages/${{ matrix.tarball-prefix }}-${version}.tgz" \
             --access public \
             --tag "$tag"
 
@@ -255,6 +260,8 @@ jobs:
 
       - name: Publish shell-use to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
 
   release:
     needs:
