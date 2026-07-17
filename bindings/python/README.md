@@ -54,7 +54,7 @@ Every failure maps to one of the daemon's exit codes:
 | `VersionMismatchError` | 4 | the daemon's version differs from this package |
 | `InternalError` | 5 | internal daemon error |
 
-All derive from `ShellUseError`. `wait_*` and `expect_*` raise `ExpectationError` on failure.
+All derive from `ShellUseError`. `wait_*` and `expect_*` raise `ExpectationError` on failure. Assertion errors include the current visible terminal content.
 
 On its first call, a client checks that the running daemon's version matches the
 package version and raises `VersionMismatchError` if they differ. Stop the daemon

@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 from . import _config as cfg
 from . import _transport as transport
 from ._protocol import EnvLike, env_pairs, unwrap
-from .errors import VersionMismatchError
+from .errors import ExpectationError, VersionMismatchError
 from .types import Cell, State
 
 
@@ -269,19 +269,24 @@ class ShellUse:
         bg: Optional[str] = None,
         timeout: int = 5000,
     ) -> None:
-        await self.send(
-            {
-                "kind": "expect_text",
-                "text": text,
-                "regex": regex,
-                "full": full,
-                "strict": strict,
-                "not": not_,
-                "fg": fg,
-                "bg": bg,
-                "timeout_ms": timeout,
-            }
-        )
+        try:
+            await self.send(
+                {
+                    "kind": "expect_text",
+                    "text": text,
+                    "regex": regex,
+                    "full": full,
+                    "strict": strict,
+                    "not": not_,
+                    "fg": fg,
+                    "bg": bg,
+                    "timeout_ms": timeout,
+                }
+            )
+        except ExpectationError as error:
+            error.message = f"expect_text: {error.message}"
+            error.args = (error.message,)
+            raise
 
     async def expect_exit_code(self, code: int) -> None:
         await self.send({"kind": "expect_exit_code", "code": code})

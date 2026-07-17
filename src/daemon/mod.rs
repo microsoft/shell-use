@@ -19,7 +19,7 @@ use crate::config::{self, POLL_DELAY_MS};
 use crate::input::{keys, mouse};
 use crate::ipc;
 use crate::monitor;
-use crate::protocol::{GetField, MouseAction, Request, Response};
+use crate::protocol::{ErrorKind, GetField, MouseAction, Request, Response};
 use crate::terminal::emu::{rows_to_strings, Color, EmuCell};
 use crate::terminal::locator::{self, Pattern};
 use logger::Logger;
@@ -348,7 +348,7 @@ fn text_of(rows: &[Vec<EmuCell>]) -> String {
 }
 
 fn dispatch(s: &mut Session, req: Request) -> Response {
-    match req {
+    let mut response = match req {
         Request::State => state(s),
         Request::Text { full } => Response::with(json!({ "text": text_of(&grid(s, full)) })),
         Request::Cells { x, y, w, h } => cells(s, x, y, w, h),
@@ -389,7 +389,13 @@ fn dispatch(s: &mut Session, req: Request) -> Response {
         } => do_snapshot(s, &name, update, include_colors, cwd),
         Request::Screenshot { full, path } => screenshot(s, full, path),
         _ => Response::internal("unsupported request"),
+    };
+    if response.kind == Some(ErrorKind::Assertion) {
+        if let Some(message) = response.message.take() {
+            response.message = Some(assertion_message(s, &message));
+        }
     }
+    response
 }
 
 fn act(r: anyhow::Result<()>) -> Response {
@@ -573,8 +579,10 @@ fn wait_text(
     );
     if found {
         Response::ok()
+    } else if not {
+        Response::assertion(timeout_message(&pattern.describe(), timeout_ms, true))
     } else {
-        Response::assertion(timeout_message(s, &pattern.describe(), timeout_ms))
+        Response::assertion(timeout_message(&pattern.describe(), timeout_ms, false))
     }
 }
 
@@ -655,10 +663,7 @@ fn expect_text(
         return if gone {
             Response::ok()
         } else {
-            Response::assertion(format!(
-                "expected '{}' to not be visible",
-                pattern.describe()
-            ))
+            Response::assertion(timeout_message(&pattern.describe(), timeout_ms, true))
         };
     }
 
@@ -687,7 +692,7 @@ fn expect_text(
     } else if let Some(err) = last_err {
         Response::assertion(err)
     } else {
-        Response::assertion(timeout_message(s, &pattern.describe(), timeout_ms))
+        Response::assertion(timeout_message(&pattern.describe(), timeout_ms, false))
     }
 }
 
@@ -822,9 +827,23 @@ fn screenshot(s: &Session, full: bool, path: Option<String>) -> Response {
     }
 }
 
-fn timeout_message(s: &Session, pattern: &str, timeout_ms: u64) -> String {
-    let snapshot = text_of(&viewable(s));
+fn timeout_message(pattern: &str, timeout_ms: u64, not: bool) -> String {
     format!(
-        "locator timeout: '{pattern}' not found after {timeout_ms}ms\n\nTerminal content:\n---START---\n{snapshot}\n---END---"
+        "timed out after {} waiting for '{pattern}' to be {}",
+        format_timeout(timeout_ms),
+        if not { "hidden" } else { "visible" }
     )
+}
+
+fn assertion_message(s: &Session, message: &str) -> String {
+    let screen = snapshot::serialize(&viewable(s), s.cols, false);
+    format!("{message}\n\nTerminal content:\n{screen}")
+}
+
+fn format_timeout(timeout_ms: u64) -> String {
+    if timeout_ms.is_multiple_of(1_000) {
+        format!("{}s", timeout_ms / 1_000)
+    } else {
+        format!("{timeout_ms}ms")
+    }
 }

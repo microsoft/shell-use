@@ -74,7 +74,7 @@ pub fn find(
             }
             if occurrences > 1 && strict {
                 anyhow::bail!(
-                    "strict mode violation: getByText({}) resolved to {} elements",
+                    "strict mode expected one match for '{}', but found {}",
                     text,
                     occurrences
                 );
@@ -90,7 +90,7 @@ pub fn find(
             }
             if matches.len() > 1 && strict {
                 anyhow::bail!(
-                    "strict mode violation: getByText({}) resolved to {} elements",
+                    "strict mode expected one match for '{}', but found {}",
                     re.as_str(),
                     matches.len()
                 );
