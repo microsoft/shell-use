@@ -1,28 +1,28 @@
 class ShellUse < Formula
   desc "Headless terminal CLI for driving, asserting on, and recording shells"
   homepage "https://github.com/microsoft/shell-use"
-  version "0.0.1-beta.4"
+  version "0.0.1-beta.5"
   license "MIT"
 
   on_macos do
     on_arm do
       url "https://github.com/microsoft/shell-use/releases/download/v#{version}/shell-use-aarch64-apple-darwin.tar.gz"
-      sha256 "b8b3030d23e411dfdbb21dc2caf07dbafaa8fb506bb31db0a5689e88a4ba1511"
+      sha256 "75c0a4ff9fb7dc2f92d9579862156e2f5bba371cd93267e27f4a0d18b9a41127"
     end
     on_intel do
       url "https://github.com/microsoft/shell-use/releases/download/v#{version}/shell-use-x86_64-apple-darwin.tar.gz"
-      sha256 "cad4771ccce1700db36e07b8ea088dcbade3ed995b12c58a36350d5d5d67a5c8"
+      sha256 "35a13ff4ae2487a548b4f3918de70cfaafba7e50f4a9b49fbe36fa4d00dcabef"
     end
   end
 
   on_linux do
     on_arm do
       url "https://github.com/microsoft/shell-use/releases/download/v#{version}/shell-use-aarch64-unknown-linux-musl.tar.gz"
-      sha256 "c8c3e3fa6728e5c982901ead423b09aa90660fe09066826a3388d6d40925543f"
+      sha256 "c9426154a9e83c11c2f6a32145891504cf1a8ecf87d640f5c63af742d47db737"
     end
     on_intel do
       url "https://github.com/microsoft/shell-use/releases/download/v#{version}/shell-use-x86_64-unknown-linux-musl.tar.gz"
-      sha256 "8214c9d4c1c14d91f746fd4625e3706217b11b54f20831214383e5a5e3fd9b2c"
+      sha256 "0d2baa11bfde7a0b118a6b8836c829b87a31194d714484d36955ee65dbcf1dc2"
     end
   end
 
