@@ -309,6 +309,159 @@ macro_rules! emulator_conformance_tests {
             );
         }
 
+        /// Emoji occupy two columns, like any other wide character.
+        ///
+        /// This is not pedantry about Unicode: every consumer addresses cells
+        /// by column, so a backend that calls an emoji one column wide moves
+        /// the reported position of everything after it on the line. The
+        /// headless xterm.js bundle ships only the Unicode 6 tables, which get
+        /// this wrong, which is why that backend loads a wider provider.
+        #[test]
+        fn conformance_emoji_is_two_columns_wide() {
+            let mut e = conformance_emu(12, 2, 100);
+            e.process("🙂X".as_bytes());
+            let rows = e.viewable_rows();
+            assert_eq!(rows[0][0].ch, "🙂");
+            assert_eq!(
+                rows[0][1].ch,
+                $crate::terminal::cell::CONTINUATION,
+                "an emoji's second column is a continuation"
+            );
+            assert_eq!(rows[0][2].ch, "X", "the next glyph starts at column 2");
+            assert_eq!(e.cursor(), (3, 0));
+        }
+
+        /// A zero-width character with no base to attach to still leaves the
+        /// grid rectangular.
+        ///
+        /// Backends disagree about what such a cell holds: alacritty discards
+        /// the mark, xterm.js gives it a column of its own. Both are defensible
+        /// for a sequence no terminal defines, so this pins only the invariant
+        /// every consumer depends on. It is a regression test with teeth: the
+        /// xterm.js backend used to report this cell as a continuation, which
+        /// made the row serialize one column short of the grid and shifted
+        /// every snapshot and screenshot after it.
+        #[test]
+        fn conformance_a_baseless_combining_mark_keeps_the_grid_rectangular() {
+            let mut e = conformance_emu(6, 2, 100);
+            e.process("\u{064b}hi".as_bytes());
+            let rows = e.viewable_rows();
+            for row in &rows {
+                assert_eq!(row.len(), 6, "every row stays full width");
+            }
+            assert_eq!(
+                $crate::terminal::cell::rows_to_strings(&rows)[0]
+                    .chars()
+                    .count(),
+                6,
+                "the serialized row is as wide as the grid"
+            );
+            assert!(
+                conformance_text(&rows)[0].contains("hi"),
+                "the text that followed the mark survives"
+            );
+        }
+
+        /// SGR 59 resets the underline color, leaving the cell with none.
+        ///
+        /// xterm.js stores that reset as a sentinel its public getters report
+        /// as RGB white, so a backend that trusts them paints a white underline
+        /// the terminal never asked for.
+        #[test]
+        fn conformance_sgr_59_clears_the_underline_color() {
+            let mut e = conformance_emu(8, 1, 100);
+            e.process(b"\x1b[4;58;5;33mA\x1b[59mB");
+            let rows = e.viewable_rows();
+            assert_eq!(
+                rows[0][0].underline_color,
+                Some($crate::terminal::cell::Color::from_index(33)),
+                "58 sets the color"
+            );
+            assert_eq!(rows[0][1].underline_color, None, "59 clears it");
+            assert_eq!(
+                rows[0][1].underline,
+                $crate::terminal::cell::UnderlineStyle::Single,
+                "59 clears the color without clearing the underline"
+            );
+        }
+
+        /// `size()` reports the grid the emulator actually has.
+        ///
+        /// Emulators clamp: xterm.js will not go below two columns. A backend
+        /// that reports the size it was *asked* for while holding a different
+        /// one makes every consumer address a coordinate space that does not
+        /// exist, and made the row decoder mis-chunk the grid into twice as
+        /// many rows as the terminal has.
+        #[test]
+        fn conformance_size_matches_the_grid_that_is_returned() {
+            for (req_cols, req_rows) in [(1u16, 4u16), (10, 3), (80, 24)] {
+                let mut e = conformance_emu(req_cols, req_rows, 100);
+                e.process(b"abcdef");
+                let (cols, rows) = e.size();
+                let grid = e.viewable_rows();
+                assert_eq!(
+                    grid.len(),
+                    rows as usize,
+                    "asked for {req_cols}x{req_rows}: row count must equal the reported height"
+                );
+                for row in &grid {
+                    assert_eq!(
+                        row.len(),
+                        cols as usize,
+                        "asked for {req_cols}x{req_rows}: every row must be the reported width"
+                    );
+                }
+            }
+        }
+
+        /// Reading the grid never panics on a degenerate size.
+        ///
+        /// `resize` takes a `u16` and nothing on the path from the wire to the
+        /// emulator rejects zero, so this has to be survivable rather than
+        /// merely unlikely: the daemon serves requests on its main thread, so a
+        /// panic here takes the session and its child process with it.
+        #[test]
+        fn conformance_a_zero_width_grid_does_not_panic() {
+            let mut e = conformance_emu(10, 3, 100);
+            e.process(b"hello");
+            e.resize(0, 3);
+            let _ = e.viewable_rows();
+            let _ = e.full_rows();
+            let _ = e.cursor();
+        }
+
+        /// A narrowing resize leaves a well-formed grid at the new size, and
+        /// keeps the part of each line that still fits.
+        ///
+        /// What happens to the part that *doesn't* fit is genuinely divergent,
+        /// so the test stops there. alacritty reflows, rewrapping the overflow
+        /// onto following rows; xterm.js truncates each line at the new width
+        /// and drops it. Narrowing `abcdefghijklmnop` from 10 columns to 6
+        /// gives `abcdef/ghijkl/mnop` on one and `abcdef/klmnop` on the other.
+        /// Pinning either would fail the other backend, but shape corruption
+        /// here would break every consumer, so that much is pinned.
+        #[test]
+        fn conformance_resize_leaves_a_well_formed_grid() {
+            let mut e = conformance_emu(10, 4, 100);
+            e.process(b"abcdefghijklmnop");
+            e.resize(6, 4);
+
+            assert_eq!(e.size(), (6, 4));
+            let rows = e.viewable_rows();
+            assert_eq!(rows.len(), 4, "row count follows the new height");
+            for row in &rows {
+                assert_eq!(row.len(), 6, "every row follows the new width");
+            }
+            let (cx, cy) = e.cursor();
+            assert!(cx < 6 && cy < 4, "cursor stays inside the new grid");
+            assert!(
+                conformance_text(&e.full_rows())
+                    .iter()
+                    .any(|r| r.starts_with("abcdef")),
+                "the part of the first line that still fits survives"
+            );
+        }
+
         /// A wide char that does not fit in the last column wraps whole to the
         /// next row, and the column it left behind is a blank it still owns.
         /// Backends mark that filler with a distinct flag from a real

@@ -57,6 +57,7 @@ class State:
     ready: bool
     text: str
     session_shell: Optional[str]
+    backend: str
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "State":
@@ -71,4 +72,6 @@ class State:
             ready=d.get("ready", False),
             text=d.get("text", ""),
             session_shell=d.get("session_shell"),
+            # Absent when talking to a daemon that predates backend selection.
+            backend=d.get("backend", "alacritty"),
         )

@@ -9,6 +9,22 @@ use crate::terminal::xtermjs::XtermJsEmu;
 /// Scrollback retained by every session, in rows.
 pub const SCROLLBACK: usize = 5_000;
 
+/// The smallest grid any backend is asked for.
+///
+/// The two emulators disagree about degenerate sizes: xterm.js silently clamps
+/// to two columns by one row, while alacritty panics inside its own grid code
+/// on a zero-width resize — which takes the daemon with it, since requests are
+/// served on the main thread. Nothing between the wire and here rejects a zero,
+/// so `cols`/`rows` are clamped once, at the seam, and both backends then agree
+/// on what a session that asked for something impossible actually got.
+pub const MIN_COLS: u16 = 2;
+pub const MIN_ROWS: u16 = 1;
+
+/// Clamp a requested grid size to what every backend can represent.
+pub fn clamp_size(cols: u16, rows: u16) -> (u16, u16) {
+    (cols.max(MIN_COLS), rows.max(MIN_ROWS))
+}
+
 /// The emulator a session drives its PTY output through.
 ///
 /// Both backends pass the same conformance suite, so this picks which
@@ -35,6 +51,7 @@ impl Backend {
     pub const ALL: [Backend; 2] = [Backend::Alacritty, Backend::XtermJs];
 
     pub fn build(self, cols: u16, rows: u16) -> anyhow::Result<Box<dyn Emulator>> {
+        let (cols, rows) = clamp_size(cols, rows);
         Ok(match self {
             Backend::Alacritty => Box::new(AlacrittyEmu::new(cols, rows, SCROLLBACK)),
             Backend::XtermJs => Box::new(XtermJsEmu::new(cols, rows, SCROLLBACK)?),

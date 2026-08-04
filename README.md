@@ -325,11 +325,20 @@ SVG renderer behave identically on either. Pick `xtermjs` when the question is
 specifically "does this look right in VS Code". Neither backend needs Node
 installed: the xterm.js bundle is embedded in the binary.
 
-Two differences are inherent to the emulators rather than to this wiring:
+Differences that are inherent to the emulators rather than to this wiring:
 
 - Only `xtermjs` reports the `blink` attribute; alacritty parses SGR 5 and
   discards it.
 - Only `alacritty` keeps an underline color on a cell it is not underlining.
+- **Narrowing a session reflows on `alacritty` and truncates on `xtermjs`.**
+  Resizing `abcdefghijklmnop` from 10 columns to 6 gives `abcdef/ghijkl/mnop`
+  on alacritty and `abcdef/klmnop` on xterm.js, which drops what no longer
+  fits. Avoid narrowing a session you still need the scrollback of.
+- Reading the full scrollback (`--full`) is roughly 10x slower on `xtermjs`,
+  since every cell crosses a JS boundary. The visible screen is unaffected.
+
+`--cols 0` is not a usable size on either emulator, so any request below 2x1 is
+clamped to it and reported back at the clamped size.
 
 ## Comparison
 

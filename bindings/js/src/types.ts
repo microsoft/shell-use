@@ -69,8 +69,8 @@ export interface Cell {
 
 export interface State {
   session_shell: string | null;
-  /** The emulator this session is running on. */
-  backend: Backend;
+  /** The emulator this session is running on; absent from older daemons. */
+  backend?: Backend;
   cols: number;
   rows: number;
   cursor: Cursor;

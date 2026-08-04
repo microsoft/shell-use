@@ -49,6 +49,16 @@ globalThis.__boot = function (cols, rows, scrollback) {
     allowProposedApi: true,
   });
 
+  // The headless bundle ships only the Unicode 6 width tables, which call
+  // every astral emoji one column wide. alacritty measures them as two, so
+  // without this a line containing an emoji puts every following cell in a
+  // different column on the two backends, moving what `cells`, the locator,
+  // and the SVG renderer report. The Unicode 11 provider restores the pair.
+  if (typeof globalThis.__unicode11 === 'function') {
+    term.loadAddon(new globalThis.__unicode11());
+    term.unicode.activeVersion = '11';
+  }
+
   // Replies the terminal wants sent back up the PTY (DA, CPR, and friends).
   var replies = [];
   term.onData(function (d) { replies.push(d); });
@@ -103,9 +113,17 @@ globalThis.__boot = function (cols, rows, scrollback) {
       for (var y = start; y < end; y++) {
         var line = buf.getLine(y);
         for (var x = 0; x < cols; x++) {
-          if (!line) { chars.push(' '); meta.push(1, 0, 0, 0, 0, 0); continue; }
+          if (!line) { chars.push(' '); meta.push(1, -1, -1, -1, 0, 0); continue; }
           var c = line.getCell(x, CELL);
           chars.push(c.getChars());
+
+          // Reading a cell costs a JS call per getter, and a full-scrollback
+          // dump is hundreds of thousands of cells. Most of them are ordinary
+          // unstyled text, and for those one call answers all nineteen: -1 is
+          // the "no color" value every getter returns, and no attribute bit is
+          // set. Verified to produce byte-identical output to the long form
+          // across every SGR in the cell vocabulary.
+          if (c.isAttributeDefault()) { meta.push(c.getWidth(), -1, -1, -1, 0, 0); continue; }
 
           var fg = c.getFgColor();
           var fgMode = c.isFgPalette() ? 1 : (c.isFgRGB() ? 2 : 0);
@@ -123,6 +141,16 @@ globalThis.__boot = function (cols, rows, scrollback) {
           // set SGR 58 to its own foreground color lands here too, and draws
           // the same either way.
           if (ulColor === fg && ulMode === fgMode) { ulMode = 0; }
+
+          // SGR 59 (reset underline color) does not clear the record: it
+          // stores a sentinel that reads back through the public getters as
+          // RGB #ffffff, so an ordinary reset produced a white underline where
+          // there should be none. The sentinel is indistinguishable from a
+          // real `58;2;255;255;255` at this layer -- both report RGB with
+          // value 0xffffff -- so one of the two has to be wrong. Resetting is
+          // overwhelmingly the more common of the two, and getting it wrong
+          // paints a color the terminal never asked for, so it wins.
+          if (ulMode === 2 && ulColor === 0xffffff) { ulMode = 0; }
 
           var flags =
             (c.isBold() ? 1 : 0) |

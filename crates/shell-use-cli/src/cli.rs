@@ -9,7 +9,7 @@ use shell_use::terminal::backend::Backend;
 #[clap(rename_all = "lowercase")]
 pub enum BackendArg {
     Alacritty,
-    #[clap(name = "xtermjs", alias = "xterm.js")]
+    #[clap(name = "xtermjs", alias = "xterm.js", alias = "xterm")]
     XtermJs,
 }
 

@@ -183,6 +183,9 @@ impl Emulator for AlacrittyEmu {
     }
 
     fn resize(&mut self, cols: u16, rows: u16) {
+        // Clamped because alacritty's own grid arithmetic underflows on a
+        // zero-width resize; see `backend::clamp_size`.
+        let (cols, rows) = crate::terminal::backend::clamp_size(cols, rows);
         self.term
             .resize(TermSize::new(cols as usize, rows as usize));
         self.cols = cols;
