@@ -211,9 +211,17 @@ macro_rules! emulator_conformance_tests {
             );
         }
 
-        /// The underline's color is tracked separately from its shape, so
-        /// SGR 58 survives a cell that is not underlined and SGR 24 leaves it
-        /// alone. Only a full reset clears both.
+        /// The underline's shape and its color are tracked separately: SGR 58
+        /// sets a color without drawing anything, SGR 24 clears the shape, and
+        /// SGR 0 clears both.
+        ///
+        /// Whether the *color* outlives a cell that is not underlined is
+        /// genuinely divergent. alacritty stores it unconditionally, but
+        /// xterm.js keeps it in an extended-attribute record whose `isEmpty()`
+        /// consults only the underline style and hyperlink id, so a cell with
+        /// a color but no shape drops the record and reports the foreground
+        /// instead. This therefore pins the shape transitions, which every
+        /// emulator agrees on, and the color only where it is actually drawn.
         #[test]
         fn conformance_underline_color_outlives_the_underline() {
             use $crate::terminal::cell::{Color, UnderlineStyle as U};
@@ -222,19 +230,13 @@ macro_rules! emulator_conformance_tests {
             let rows = e.viewable_rows();
 
             assert_eq!(rows[0][0].underline, U::None, "58 alone does not underline");
-            assert_eq!(
-                rows[0][0].underline_color,
-                Some(Color::from_index(33)),
-                "but its color is still tracked"
-            );
             assert_eq!(rows[0][1].underline, U::Single, "4 turns it on");
-            assert_eq!(rows[0][1].underline_color, Some(Color::from_index(33)));
-            assert_eq!(rows[0][2].underline, U::None, "24 turns it off");
             assert_eq!(
-                rows[0][2].underline_color,
+                rows[0][1].underline_color,
                 Some(Color::from_index(33)),
-                "24 clears the shape, not the color"
+                "an underlined cell carries the color 58 set"
             );
+            assert_eq!(rows[0][2].underline, U::None, "24 turns it off");
             assert_eq!(rows[0][3].underline, U::None, "0 resets everything");
             assert_eq!(rows[0][3].underline_color, None);
         }

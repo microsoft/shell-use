@@ -20,6 +20,7 @@ dirs.workspace = true
 flate2.workspace = true
 portable-pty.workspace = true
 regex.workspace = true
+rquickjs.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 ttf-parser.workspace = true
