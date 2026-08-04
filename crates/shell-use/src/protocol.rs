@@ -35,6 +35,9 @@ pub enum Request {
     Open {
         shell: Option<Shell>,
         program: Option<Vec<String>>,
+        /// Which emulator to run the session on; `None` keeps the default.
+        #[serde(default)]
+        backend: Option<crate::terminal::backend::Backend>,
         cols: u16,
         rows: u16,
         cwd: Option<String>,
@@ -293,6 +296,7 @@ mod tests {
         Request::Open {
             shell: None,
             program: None,
+            backend: None,
             cols: 80,
             rows: 30,
             cwd: None,
@@ -311,17 +315,35 @@ mod tests {
         match req {
             Request::Open {
                 wait_ready,
+                backend,
                 cols,
                 timeouts,
                 ..
             } => {
                 assert_eq!(wait_ready, None);
+                assert_eq!(
+                    backend, None,
+                    "a client that predates backend selection gets the default"
+                );
                 assert_eq!(cols, 80);
                 assert_eq!(
                     timeouts,
                     TimeoutDefaults::default(),
                     "an absent timeouts object means nothing is configured"
                 );
+            }
+            other => panic!("expected Open, got {other:?}"),
+        }
+    }
+
+    /// The backend travels by its wire name, so a client can ask for one.
+    #[test]
+    fn open_carries_a_requested_backend() {
+        let raw = r#"{"kind":"open","shell":null,"program":null,"backend":"xtermjs",
+                      "cols":80,"rows":30,"cwd":null,"env":[]}"#;
+        match serde_json::from_str::<Request>(raw).expect("deserialize open") {
+            Request::Open { backend, .. } => {
+                assert_eq!(backend, Some(crate::terminal::backend::Backend::XtermJs))
             }
             other => panic!("expected Open, got {other:?}"),
         }

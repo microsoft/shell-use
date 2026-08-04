@@ -161,7 +161,7 @@ prints a session's effective timeouts.
 
 | Command                                                      | Description                                 |
 | ------------------------------------------------------------ | ------------------------------------------- |
-| `open [--shell S] [--cols N --rows N] [--cwd D] [--env K=V] [--timeout-<class> MS]` | Spawn a shell session.                      |
+| `open [--shell S] [--backend B] [--cols N --rows N] [--cwd D] [--env K=V] [--timeout-<class> MS]` | Spawn a shell session.                      |
 | `run <program> [args...]`                                    | Spawn a session running a program directly. |
 | `sessions`                                                   | List active sessions.                       |
 | `close [--all]`                                              | Close the current session (or all).         |
@@ -306,12 +306,37 @@ With `--json`, failures also carry a `"kind"` field (`assertion`/`usage`/`no_ses
 - nushell
 - cmd
 
+## Terminal backends
+
+A session runs on one of two emulators, chosen at open time with `--backend`:
+
+| Backend            | Notes                                                                  |
+| ------------------ | ---------------------------------------------------------------------- |
+| `alacritty`        | Default. Native, no interpreter.                                        |
+| `xtermjs`          | `@xterm/headless` on an embedded QuickJS. Matches what VS Code's terminal shows. |
+
+```bash
+shell-use open --backend xtermjs
+shell-use run --backend xtermjs -- htop
+```
+
+Both backends pass the same conformance suite, so `expect`, `snapshot`, and the
+SVG renderer behave identically on either. Pick `xtermjs` when the question is
+specifically "does this look right in VS Code". Neither backend needs Node
+installed: the xterm.js bundle is embedded in the binary.
+
+Two differences are inherent to the emulators rather than to this wiring:
+
+- Only `xtermjs` reports the `blink` attribute; alacritty parses SGR 5 and
+  discards it.
+- Only `alacritty` keeps an underline color on a cell it is not underlining.
+
 ## Comparison
 
 |                                      | shell-use                                        | [tui-use](https://github.com/onesuper/tui-use) | [terminal-use](https://github.com/flipbit03/terminal-use) |
 | ------------------------------------ | ------------------------------------------------ | ---------------------------------------------- | --------------------------------------------------------- |
 | Language                             | Rust                                             | TypeScript/Node                                | Rust                                                      |
-| Emulator                             | alacritty                                        | xterm (headless)                               | alacritty                                                 |
+| Emulator                             | alacritty or xterm.js, per session               | xterm (headless)                               | alacritty                                                 |
 | Shell command tracking               | ✅ command boundaries, exit codes, cwd           | ❌                                             | ❌                                                        |
 | Testing / snapshots                  | ✅ `expect` text / output / exit-code / snapshot | ❌                                             | ❌                                                        |
 | Color & per-cell attributes          | ✅ fg/bg, ANSI-256/hex/rgb, `cells`              | ❌ plain text (+ highlights)                   | via PNG                                                   |

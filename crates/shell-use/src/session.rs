@@ -8,7 +8,7 @@ use std::time::Instant;
 
 use crate::logger::Logger;
 use crate::shell::{self, Shell};
-use crate::terminal::alacritty::AlacrittyEmu;
+use crate::terminal::backend::Backend;
 use crate::terminal::emu::Emulator;
 use crate::terminal::integration::CommandTracker;
 use crate::terminal::pty::{Pty, SpawnOptions};
@@ -26,6 +26,7 @@ pub struct TermState {
 
 pub struct Session {
     pub shell: Option<Shell>,
+    pub backend: Backend,
     pub cols: u16,
     pub rows: u16,
     /// Per-class timeout defaults for the lifetime of this session.
@@ -49,6 +50,7 @@ impl Session {
     pub fn open(
         shell: Option<Shell>,
         program: Option<Vec<String>>,
+        backend: Backend,
         cols: u16,
         rows: u16,
         cwd: Option<String>,
@@ -57,6 +59,10 @@ impl Session {
         logger: Arc<Logger>,
         recording_path: PathBuf,
     ) -> anyhow::Result<Self> {
+        // Built before the PTY is spawned: a backend that cannot start is a
+        // plain error here, rather than a live child process to clean up.
+        let emu = backend.build(cols, rows)?;
+
         let (pty, reader) = if let Some(program) = &program {
             let (target, args) = program
                 .split_first()
@@ -76,7 +82,7 @@ impl Session {
         };
 
         let state = Arc::new(Mutex::new(TermState {
-            emu: Box::new(AlacrittyEmu::new(cols, rows, 5_000)),
+            emu,
             tracker: CommandTracker::new(),
             last_change: Instant::now(),
             awaiting_start: None,
@@ -133,12 +139,17 @@ impl Session {
         });
 
         logger.event(&format!(
-            "session open shell={:?} program={:?} {}x{}",
-            shell, program, cols, rows
+            "session open shell={:?} program={:?} backend={} {}x{}",
+            shell,
+            program,
+            backend.as_str(),
+            cols,
+            rows
         ));
 
         Ok(Session {
             shell,
+            backend,
             cols,
             rows,
             timeouts,

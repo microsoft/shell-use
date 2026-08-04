@@ -273,6 +273,45 @@ fn state_reports_effective_timeouts() {
     );
 }
 
+/// A session runs on the backend it was opened with, and that backend drives a
+/// real shell to the same visible result. The daemon is the only place the
+/// selection is acted on, so a CLI flag that never reached `Session::open`
+/// would still look correct everywhere else.
+///
+/// Only `xtermjs` is exercised here: it is the path this flag adds, and every
+/// other test in this file already runs a session on the default backend.
+#[test]
+fn a_session_runs_on_the_backend_it_asked_for() {
+    let sandbox = Sandbox::new("backend-select");
+    sandbox.ok(&["open", "--backend", "xtermjs"]);
+
+    let state = sandbox.ok(&["--json", "state"]);
+    assert!(
+        state.contains("\"backend\":\"xtermjs\""),
+        "state should report the xtermjs backend: {state}"
+    );
+
+    sandbox.ok(&["submit", "echo backend-ok"]);
+    sandbox.ok(&["wait", "command"]);
+    let text = sandbox.ok(&["text"]);
+    assert!(
+        text.contains("backend-ok"),
+        "the xtermjs backend should show the command's output: {text}"
+    );
+}
+
+/// An unknown backend is rejected at the CLI rather than silently falling
+/// back to the default, which would hide the typo behind a passing run.
+#[test]
+fn an_unknown_backend_is_rejected() {
+    let sandbox = Sandbox::new("backend-unknown");
+    let out = sandbox.run(&["open", "--backend", "ghostty"]);
+    assert!(
+        !out.status.success(),
+        "an unknown backend must not open a session"
+    );
+}
+
 #[test]
 fn open_reports_the_daemon_pid_the_child_and_readiness() {
     let sandbox = Sandbox::new("open-payload");

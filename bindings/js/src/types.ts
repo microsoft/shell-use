@@ -20,6 +20,14 @@ export type Shell =
   | "elvish"
   | "nushell";
 
+/**
+ * The terminal emulator a session runs on. Both pass the same conformance
+ * suite, so this selects whose reading of an ambiguous sequence you see, not
+ * which features you get. Pick `"xtermjs"` to match what VS Code's terminal
+ * would show. Defaults to `"alacritty"`.
+ */
+export type Backend = "alacritty" | "xtermjs";
+
 export interface Cursor {
   x: number;
   y: number;
@@ -43,21 +51,26 @@ export interface Cell {
   inverse: boolean;
   invisible: boolean;
   strike: boolean;
-  /** Always `false` from the alacritty backend, which cannot report blink. */
+  /** Only the `xtermjs` backend reports blink; `alacritty` always says `false`. */
   blink: boolean;
   /** Shorthand for `underline_style !== "none"`. */
   underline: boolean;
   underline_style: UnderlineStyle;
   /**
-   * `"default"` means the underline follows the text color. Tracked
-   * independently of `underline_style`, so a cell that set SGR 58 without an
-   * underline still reports the color it would use.
+   * `"default"` means the underline follows the text color.
+   *
+   * On the `alacritty` backend this is tracked independently of
+   * `underline_style`, so a cell that set SGR 58 without an underline still
+   * reports the color it would use. The `xtermjs` backend discards the color
+   * for a cell it is not drawing an underline on, and reports `"default"`.
    */
   underline_color: Color;
 }
 
 export interface State {
   session_shell: string | null;
+  /** The emulator this session is running on. */
+  backend: Backend;
   cols: number;
   rows: number;
   cursor: Cursor;
@@ -104,6 +117,8 @@ export interface SpawnOptions {
   waitReady?: boolean;
   retries?: number;
   timeouts?: Timeouts;
+  /** Emulator to run the session on; defaults to `"alacritty"`. */
+  backend?: Backend;
 }
 
 export interface Timeouts {

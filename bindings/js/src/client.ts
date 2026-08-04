@@ -296,6 +296,9 @@ export class ShellUse {
       cwd: opts.cwd ?? null,
       env: envPairs(opts.env),
     };
+    if (opts.backend !== undefined) {
+      payload.backend = opts.backend;
+    }
     if (opts.waitReady !== undefined) {
       payload.wait_ready = opts.waitReady;
     }
@@ -316,6 +319,9 @@ export class ShellUse {
       cwd: opts.cwd ?? null,
       env: envPairs(opts.env),
     };
+    if (opts.backend !== undefined) {
+      payload.backend = opts.backend;
+    }
     if (opts.waitReady !== undefined) {
       payload.wait_ready = opts.waitReady;
     }

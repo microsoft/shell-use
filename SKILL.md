@@ -60,7 +60,7 @@ without parsing text:
 
 | Command | Description |
 | --- | --- |
-| `open [--shell S] [--cols N] [--rows N] [--cwd D] [--env K=V]...` | Spawn a shell session (auto-starts the daemon). `--env` is repeatable. |
+| `open [--shell S] [--backend B] [--cols N] [--rows N] [--cwd D] [--env K=V]...` | Spawn a shell session (auto-starts the daemon). `--env` is repeatable. |
 | `run <program> [args...] [--cols N] [--rows N] [--cwd D] [--env K=V]...` | Spawn a session running a program directly (no shell). |
 | `sessions` | List active sessions. |
 | `close [--all]` | Close the current session (or every session with `--all`). |
@@ -298,6 +298,17 @@ the [exit-code table](#exit-codes): `ExpectationError` (1), `UsageError` (2),
 of `ShellUseError`. On its first call a client also checks that the daemon's
 version matches the package and raises `VersionMismatchError` if they differ;
 stop the daemon (`daemon_stop`) so it restarts on the matching binary.
+
+## Terminal backends
+
+`--backend B` picks the emulator a session runs on, on both `open` and `run`:
+`alacritty` (default, native) or `xtermjs` (`@xterm/headless` on an embedded
+QuickJS, matching VS Code's terminal). Node is not required for either.
+
+Both pass the same conformance suite, so assertions and screenshots behave the
+same on either. Two emulator-level differences remain: only `xtermjs` reports
+`blink`, and only `alacritty` keeps an underline color on a cell it is not
+underlining. `state` reports the backend in use.
 
 ## Supported shells & integration
 

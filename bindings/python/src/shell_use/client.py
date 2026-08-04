@@ -251,6 +251,7 @@ class ShellUse:
         self,
         *,
         shell: Optional[str] = None,
+        backend: Optional[str] = None,
         cols: int = cfg.DEFAULT_COLS,
         rows: int = cfg.DEFAULT_ROWS,
         cwd: Optional[str] = None,
@@ -268,6 +269,8 @@ class ShellUse:
             "cwd": cwd,
             "env": env_pairs(env),
         }  # type: Dict[str, Any]
+        if backend is not None:
+            payload["backend"] = backend
         if wait_ready is not None:
             payload["wait_ready"] = wait_ready
         session_timeouts = cfg.session_timeouts_payload(timeouts)
@@ -279,6 +282,7 @@ class ShellUse:
         self,
         program: str,
         *args: str,
+        backend: Optional[str] = None,
         cols: int = cfg.DEFAULT_COLS,
         rows: int = cfg.DEFAULT_ROWS,
         cwd: Optional[str] = None,
@@ -296,6 +300,8 @@ class ShellUse:
             "cwd": cwd,
             "env": env_pairs(env),
         }  # type: Dict[str, Any]
+        if backend is not None:
+            payload["backend"] = backend
         if wait_ready is not None:
             payload["wait_ready"] = wait_ready
         session_timeouts = cfg.session_timeouts_payload(timeouts)

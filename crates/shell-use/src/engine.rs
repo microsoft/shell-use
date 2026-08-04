@@ -47,6 +47,7 @@ fn req_summary(req: &Request) -> String {
         Request::Open {
             shell,
             program,
+            backend,
             cols,
             rows,
             cwd,
@@ -54,7 +55,7 @@ fn req_summary(req: &Request) -> String {
             wait_ready,
             timeouts,
         } => format!(
-            "Open {{ shell: {shell:?}, program: {program:?}, {cols}x{rows}, cwd: {cwd:?}, wait_ready: {wait_ready:?}, timeouts: {timeouts:?}, env: <{} vars> }}",
+            "Open {{ shell: {shell:?}, program: {program:?}, backend: {backend:?}, {cols}x{rows}, cwd: {cwd:?}, wait_ready: {wait_ready:?}, timeouts: {timeouts:?}, env: <{} vars> }}",
             env.len()
         ),
         other => format!("{other:?}"),
@@ -82,6 +83,7 @@ impl Engine {
             Request::Open {
                 shell,
                 program,
+                backend,
                 cols,
                 rows,
                 cwd,
@@ -89,7 +91,17 @@ impl Engine {
                 wait_ready,
                 timeouts,
             } => (
-                self.open(shell, program, cols, rows, cwd, env, wait_ready, timeouts),
+                self.open(
+                    shell,
+                    program,
+                    backend.unwrap_or_default(),
+                    cols,
+                    rows,
+                    cwd,
+                    env,
+                    wait_ready,
+                    timeouts,
+                ),
                 false,
             ),
             Request::Close => {
@@ -109,6 +121,7 @@ impl Engine {
         &self,
         shell: Option<crate::shell::Shell>,
         program: Option<Vec<String>>,
+        backend: crate::terminal::backend::Backend,
         cols: u16,
         rows: u16,
         cwd: Option<String>,
@@ -119,6 +132,7 @@ impl Engine {
         match Session::open(
             shell,
             program.clone(),
+            backend,
             cols,
             rows,
             cwd,
@@ -365,6 +379,7 @@ fn state(s: &Session) -> Response {
     let text = text_of(&st.emu.viewable_rows());
     Response::with(json!({
         "session_shell": s.shell.map(|sh| sh.as_str()),
+        "backend": s.backend.as_str(),
         "cols": cols,
         "rows": rows,
         "cursor": { "x": cx, "y": cy },

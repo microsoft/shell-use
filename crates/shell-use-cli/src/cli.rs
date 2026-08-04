@@ -3,6 +3,24 @@ use clap::{Args, Parser, Subcommand};
 use shell_use::config::{DEFAULT_COLS, DEFAULT_ROWS};
 use shell_use::protocol::TimeoutDefaults;
 use shell_use::shell::Shell;
+use shell_use::terminal::backend::Backend;
+
+#[derive(Clone, Copy, clap::ValueEnum)]
+#[clap(rename_all = "lowercase")]
+pub enum BackendArg {
+    Alacritty,
+    #[clap(name = "xtermjs", alias = "xterm.js")]
+    XtermJs,
+}
+
+impl From<BackendArg> for Backend {
+    fn from(backend: BackendArg) -> Self {
+        match backend {
+            BackendArg::Alacritty => Backend::Alacritty,
+            BackendArg::XtermJs => Backend::XtermJs,
+        }
+    }
+}
 
 #[derive(Clone, Copy, clap::ValueEnum)]
 #[clap(rename_all = "lowercase")]
@@ -94,6 +112,9 @@ pub enum Command {
         /// Shell to launch (defaults to the platform shell).
         #[arg(long, value_enum)]
         shell: Option<ShellArg>,
+        /// Terminal emulator to run the session on (defaults to alacritty).
+        #[arg(long, value_enum)]
+        backend: Option<BackendArg>,
         /// Terminal width in columns.
         #[arg(long, default_value_t = DEFAULT_COLS)]
         cols: u16,
@@ -123,6 +144,9 @@ pub enum Command {
         /// Arguments passed to the program.
         #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
         args: Vec<String>,
+        /// Terminal emulator to run the session on (defaults to alacritty).
+        #[arg(long, value_enum)]
+        backend: Option<BackendArg>,
         /// Terminal width in columns.
         #[arg(long, default_value_t = DEFAULT_COLS)]
         cols: u16,
